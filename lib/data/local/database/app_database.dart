@@ -1,11 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite/sqflite.dart';
 
 import '../../models/track.dart';
+import 'app_database_factory.dart';
 
 /// 应用数据库，管理所有持久化数据。
 ///
@@ -27,19 +25,7 @@ class AppDatabase {
   }
 
   Future<Database> _initDatabase() async {
-    if (Platform.isLinux || Platform.isWindows) {
-      sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
-    }
-
-    final appDir = await getApplicationSupportDirectory();
-    final dbDir = Directory(p.join(appDir.path, 'vutronmusic'));
-    await dbDir.create(recursive: true);
-    final dbPath = p.join(dbDir.path, 'vutronmusic.db');
-
-    final db = await openDatabase(dbPath, version: 1, onCreate: _onCreate);
-
-    return db;
+    return openAppDatabase(_onCreate);
   }
 
   Future<void> _onCreate(Database db, int version) async {

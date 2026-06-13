@@ -23,6 +23,11 @@ class LyricView extends StatefulWidget {
 }
 
 class _LyricViewState extends State<LyricView> {
+  static const _scrollAnchor = 0.42;
+  static const _verticalPaddingFraction = 0.4;
+  static const _fallbackEstimatedLineExtent = 92.0;
+  static const _fallbackVerticalPadding = 160.0;
+
   final ScrollController _scrollController = ScrollController();
   final Map<int, GlobalKey> _lineKeys = {};
   int? _lastIndex;
@@ -39,7 +44,12 @@ class _LyricViewState extends State<LyricView> {
   @override
   void didUpdateWidget(covariant LyricView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.currentIndex != _lastIndex && widget.currentIndex != null) {
+    final linesChanged = oldWidget.lines != widget.lines;
+    if (linesChanged) {
+      _lineKeys.clear();
+    }
+    if (widget.currentIndex != null &&
+        (widget.currentIndex != _lastIndex || linesChanged)) {
       _lastIndex = widget.currentIndex;
       _scrollToCurrentLine();
     }
@@ -58,17 +68,117 @@ class _LyricViewState extends State<LyricView> {
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final lineContext = _lineKeys[index]?.currentContext;
-      if (!mounted || lineContext == null) {
+      if (!mounted || index != widget.currentIndex) {
         return;
       }
-      Scrollable.ensureVisible(
-        lineContext,
-        alignment: 0.5,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-      );
+      if (_scrollRenderedLineToAnchor(index)) {
+        return;
+      }
+      _scrollToEstimatedLineOffset(index);
     });
+  }
+
+  bool _scrollRenderedLineToAnchor(int index) {
+    if (index >= widget.lines.length || !_scrollController.hasClients) {
+      return false;
+    }
+
+    final lineContext = _lineKeys[index]?.currentContext;
+    if (lineContext == null) {
+      return false;
+    }
+
+    final lineBox = lineContext.findRenderObject();
+    final scrollable = Scrollable.maybeOf(lineContext);
+    final viewportBox = scrollable?.context.findRenderObject();
+    if (lineBox is! RenderBox ||
+        viewportBox is! RenderBox ||
+        !lineBox.attached ||
+        !viewportBox.attached) {
+      return false;
+    }
+
+    final lineTop = lineBox
+        .localToGlobal(Offset.zero, ancestor: viewportBox)
+        .dy;
+    final lineCenter = lineTop + lineBox.size.height / 2;
+    final targetOffset =
+        _scrollController.offset +
+        lineCenter -
+        _scrollController.position.viewportDimension * _scrollAnchor;
+    _animateToOffset(targetOffset);
+    return true;
+  }
+
+  void _animateToOffset(double targetOffset) {
+    final clampedOffset = targetOffset.clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
+    _scrollController.animateTo(
+      clampedOffset,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  double _verticalPaddingForViewport(double viewportHeight) {
+    if (!viewportHeight.isFinite || viewportHeight <= 0) {
+      return _fallbackVerticalPadding;
+    }
+    return viewportHeight * _verticalPaddingFraction;
+  }
+
+  double _estimatedLineExtentForViewport({
+    required double viewportHeight,
+    required double verticalPadding,
+  }) {
+    if (widget.lines.isEmpty || !_scrollController.hasClients) {
+      return _fallbackEstimatedLineExtent;
+    }
+
+    final contentExtent =
+        _scrollController.position.maxScrollExtent + viewportHeight;
+    final lineExtent =
+        (contentExtent - verticalPadding * 2) / widget.lines.length;
+    if (!lineExtent.isFinite || lineExtent <= 0) {
+      return _fallbackEstimatedLineExtent;
+    }
+    return lineExtent;
+  }
+
+  void _alignRenderedLineAfterEstimatedScroll(int index) {
+    if (!mounted || index != widget.currentIndex) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && index == widget.currentIndex) {
+        _scrollRenderedLineToAnchor(index);
+      }
+    });
+  }
+
+  void _scrollToEstimatedLineOffset(int index) {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+
+    final viewportHeight = _scrollController.position.viewportDimension;
+    final verticalPadding = _verticalPaddingForViewport(viewportHeight);
+    final estimatedLineExtent = _estimatedLineExtentForViewport(
+      viewportHeight: viewportHeight,
+      verticalPadding: verticalPadding,
+    );
+    final estimatedLineCenter =
+        verticalPadding + index * estimatedLineExtent + estimatedLineExtent / 2;
+    final targetOffset = estimatedLineCenter - viewportHeight * _scrollAnchor;
+    _scrollController
+        .animateTo(
+          targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        )
+        .whenComplete(() => _alignRenderedLineAfterEstimatedScroll(index));
   }
 
   @override
@@ -87,38 +197,46 @@ class _LyricViewState extends State<LyricView> {
       );
     }
 
-    return ShaderMask(
-      blendMode: BlendMode.dstIn,
-      shaderCallback: (bounds) {
-        return const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.transparent,
-            Colors.black,
-            Colors.black,
-            Colors.transparent,
-          ],
-          stops: [0, 0.25, 0.75, 1],
-        ).createShader(bounds);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final verticalPadding = _verticalPaddingForViewport(
+          constraints.maxHeight,
+        );
+
+        return ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (bounds) {
+            return const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.transparent,
+                Colors.black,
+                Colors.black,
+                Colors.transparent,
+              ],
+              stops: [0, 0.25, 0.75, 1],
+            ).createShader(bounds);
+          },
+          child: ListView(
+            controller: _scrollController,
+            padding: EdgeInsets.symmetric(vertical: verticalPadding),
+            children: [
+              for (var index = 0; index < widget.lines.length; index++)
+                _LyricLineTile(
+                  key: _lineKeys.putIfAbsent(index, GlobalKey.new),
+                  line: widget.lines[index],
+                  isCurrent: index == widget.currentIndex,
+                  positionMs: widget.position.inMilliseconds,
+                  textAlign: widget.textAlign,
+                  onTap: widget.onLineTap == null
+                      ? null
+                      : () => widget.onLineTap!(widget.lines[index]),
+                ),
+            ],
+          ),
+        );
       },
-      child: ListView(
-        controller: _scrollController,
-        padding: const EdgeInsets.symmetric(vertical: 180),
-        children: [
-          for (var index = 0; index < widget.lines.length; index++)
-            _LyricLineTile(
-              key: _lineKeys.putIfAbsent(index, GlobalKey.new),
-              line: widget.lines[index],
-              isCurrent: index == widget.currentIndex,
-              positionMs: widget.position.inMilliseconds,
-              textAlign: widget.textAlign,
-              onTap: widget.onLineTap == null
-                  ? null
-                  : () => widget.onLineTap!(widget.lines[index]),
-            ),
-        ],
-      ),
     );
   }
 }

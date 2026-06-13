@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../../../core/platform/cover_image_provider.dart';
 import '../../../../data/local/local_music_repository.dart';
 import '../../../../data/models/track.dart';
 import '../../application/lyric_controller.dart';
@@ -46,8 +45,14 @@ class PlayerPage extends ConsumerWidget {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= 900;
+          final showInlineLyrics =
+              isWide || constraints.maxWidth > constraints.maxHeight;
           final cover = _AlbumCover(track: track);
-          final detail = _TrackDetail(track: track, isWide: isWide);
+          final detail = _TrackDetail(
+            track: track,
+            isWide: isWide,
+            showInlineLyrics: showInlineLyrics,
+          );
 
           return Padding(
             padding: const EdgeInsets.all(24),
@@ -61,7 +66,7 @@ class PlayerPage extends ConsumerWidget {
                   )
                 : Column(
                     children: [
-                      Expanded(flex: 2, child: cover),
+                      Expanded(flex: showInlineLyrics ? 2 : 3, child: cover),
                       const SizedBox(height: 16),
                       Expanded(flex: 2, child: detail),
                     ],
@@ -70,6 +75,104 @@ class PlayerPage extends ConsumerWidget {
         },
       ),
       bottomNavigationBar: const _PlayerControlPanel(),
+    );
+  }
+}
+
+class PlayerLyricsPage extends ConsumerWidget {
+  const PlayerLyricsPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final player = ref.watch(musicPlayerControllerProvider);
+    final track = player.currentTrack;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          track?.title ?? '歌词',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.queue_music_rounded),
+            tooltip: '播放队列',
+            onPressed: () => context.push('/next'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.comment_outlined),
+            tooltip: '评论',
+            onPressed: track == null
+                ? null
+                : () => context.push('/comments/track/${track.id}'),
+          ),
+        ],
+      ),
+      body: track == null
+          ? Center(
+              child: Text(
+                '从本地音乐选择一首歌开始播放',
+                style: Theme.of(context).textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+            )
+          : const _LyricsPageBody(),
+      bottomNavigationBar: const _PlayerControlPanel(),
+    );
+  }
+}
+
+class _LyricsPageBody extends ConsumerWidget {
+  const _LyricsPageBody();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final player = ref.watch(musicPlayerControllerProvider);
+    final lyricState = ref.watch(lyricControllerProvider);
+    final track = player.currentTrack;
+
+    if (track == null) {
+      return const SizedBox.shrink();
+    }
+
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: Column(
+          children: [
+            Text(
+              [
+                track.artists.join(' / '),
+                if (track.album != null) track.album!,
+              ].join(' · '),
+              style: Theme.of(context).textTheme.titleMedium,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            _LyricOffsetControls(track: track, alignment: Alignment.center),
+            const SizedBox(height: 8),
+            Expanded(
+              child: LyricView(
+                lines: lyricState.lines,
+                currentIndex: lyricState.currentIndex,
+                position:
+                    player.position +
+                    Duration(milliseconds: (track.offset * 1000).round()),
+                textAlign: TextAlign.center,
+                onLineTap: (line) {
+                  ref
+                      .read(musicPlayerControllerProvider.notifier)
+                      .seek(Duration(milliseconds: line.start));
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -83,13 +186,14 @@ class _AlbumCover extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final coverPath = track?.coverUrl;
+    final coverImage = coverImageProvider(coverPath);
 
     return Center(
       child: AspectRatio(
         aspectRatio: 1,
         child: Card(
           clipBehavior: Clip.antiAlias,
-          child: coverPath == null
+          child: coverImage == null
               ? DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -107,7 +211,7 @@ class _AlbumCover extends StatelessWidget {
                     ),
                   ),
                 )
-              : Image.file(File(coverPath), fit: BoxFit.cover),
+              : Image(image: coverImage, fit: BoxFit.cover),
         ),
       ),
     );
@@ -115,16 +219,19 @@ class _AlbumCover extends StatelessWidget {
 }
 
 class _TrackDetail extends ConsumerWidget {
-  const _TrackDetail({required this.track, required this.isWide});
+  const _TrackDetail({
+    required this.track,
+    required this.isWide,
+    required this.showInlineLyrics,
+  });
 
   final Track? track;
   final bool isWide;
+  final bool showInlineLyrics;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final track = this.track;
-    final lyricState = ref.watch(lyricControllerProvider);
-    final player = ref.watch(musicPlayerControllerProvider);
 
     if (track == null) {
       return Center(
@@ -135,6 +242,44 @@ class _TrackDetail extends ConsumerWidget {
         ),
       );
     }
+
+    if (!showInlineLyrics) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            track.title,
+            style: Theme.of(context).textTheme.headlineMedium,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            [
+              track.artists.join(' / '),
+              if (track.album != null) track.album!,
+            ].join(' · '),
+            style: Theme.of(context).textTheme.titleMedium,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          _LyricOffsetControls(track: track, alignment: Alignment.center),
+          const SizedBox(height: 16),
+          FilledButton.tonalIcon(
+            icon: const Icon(Icons.lyrics_rounded),
+            label: const Text('查看歌词'),
+            onPressed: () => context.push('/player/lyrics'),
+          ),
+        ],
+      );
+    }
+
+    final lyricState = ref.watch(lyricControllerProvider);
+    final player = ref.watch(musicPlayerControllerProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,14 +331,18 @@ class _TrackDetail extends ConsumerWidget {
 }
 
 class _LyricOffsetControls extends ConsumerWidget {
-  const _LyricOffsetControls({required this.track});
+  const _LyricOffsetControls({
+    required this.track,
+    this.alignment = Alignment.centerLeft,
+  });
 
   final Track track;
+  final AlignmentGeometry alignment;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Align(
-      alignment: Alignment.centerLeft,
+      alignment: alignment,
       child: Wrap(
         spacing: 4,
         crossAxisAlignment: WrapCrossAlignment.center,
@@ -223,15 +372,9 @@ class _LyricOffsetControls extends ConsumerWidget {
   }
 
   Future<void> _setOffset(WidgetRef ref, double value) async {
-    final updatedTrack = await ref
-        .read(localMusicControllerProvider.notifier)
-        .setLyricOffset(track, double.parse(value.toStringAsFixed(1)));
-    if (updatedTrack == null) {
-      return;
-    }
-    ref
+    await ref
         .read(musicPlayerControllerProvider.notifier)
-        .updateTrackInQueue(updatedTrack);
+        .setLyricOffset(track, double.parse(value.toStringAsFixed(1)));
   }
 
   String _offsetLabel(double offset) {

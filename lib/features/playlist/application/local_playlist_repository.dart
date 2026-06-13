@@ -8,23 +8,36 @@ import '../../../data/local/database/app_database.dart';
 import '../../../data/models/playlist.dart';
 import '../../../data/models/track.dart';
 
-final localPlaylistRepositoryProvider = Provider<LocalPlaylistRepository>((ref) {
-  return LocalPlaylistRepository();
-});
+final localPlaylistRepositoryProvider = Provider<LocalPlaylistRepository>(
+  (ref) => LocalPlaylistRepository(),
+);
 
 class LocalPlaylistRepository {
   static const _playlistsKey = 'local_playlists.v1';
 
   Future<List<Playlist>> loadPlaylists() async {
     final db = await AppDatabase.instance.database;
-    final rows = await db.query('playlists', where: 'is_local = ?', whereArgs: [1], orderBy: 'created_at DESC');
+    final rows = await db.query(
+      'playlists',
+      where: 'is_local = ?',
+      whereArgs: [1],
+      orderBy: 'created_at DESC',
+    );
+    final playlistsById = {
+      for (final playlist in _playlistsFromRows(rows)) playlist.id: playlist,
+    };
 
-    if (rows.isNotEmpty) {
-      return _playlistsFromRows(rows);
+    final legacyPlaylists = await _loadFromSharedPreferences();
+    for (final playlist in legacyPlaylists) {
+      if (playlistsById.containsKey(playlist.id)) {
+        continue;
+      }
+      final migratedPlaylist = _asLocalPlaylist(playlist);
+      await _savePlaylist(migratedPlaylist);
+      playlistsById[migratedPlaylist.id] = migratedPlaylist;
     }
 
-    // Fallback: try shared_preferences migration
-    return _loadFromSharedPreferences();
+    return playlistsById.values.toList()..sort(_compareCreatedAtDesc);
   }
 
   List<Playlist> _playlistsFromRows(List<Map<String, Object?>> rows) {
@@ -70,7 +83,6 @@ class LocalPlaylistRepository {
 
     // Sync playlist_tracks
     final existingTracks = await db.loadPlaylistTracks(playlist.id);
-    final existingIds = existingTracks.map((r) => r['track_id'] as String).toSet();
 
     // Remove tracks no longer in playlist
     for (final et in existingTracks) {
@@ -80,16 +92,15 @@ class LocalPlaylistRepository {
       }
     }
 
-    // Insert new tracks
+    // Upsert current tracks so positions stay in sync after migration/edits.
     for (var i = 0; i < trackIds.length; i++) {
-      if (!existingIds.contains(trackIds[i])) {
-        await db.insertPlaylistTrack(playlist.id, trackIds[i], i);
-      }
+      await db.insertPlaylistTrack(playlist.id, trackIds[i], i);
     }
   }
 
   Future<Playlist> createPlaylist(String name, {String? description}) async {
-    final id = 'local-${sha1.convert(utf8.encode('$name-${DateTime.now().toIso8601String()}')).toString()}';
+    final id =
+        'local-${sha1.convert(utf8.encode('$name-${DateTime.now().toIso8601String()}')).toString()}';
     final now = DateTime.now();
     final playlist = Playlist(
       id: id,
@@ -159,8 +170,9 @@ class LocalPlaylistRepository {
       return null;
     }
 
-    final updatedTracks =
-        playlists[index].tracks.where((t) => t.id != trackId).toList();
+    final updatedTracks = playlists[index].tracks
+        .where((t) => t.id != trackId)
+        .toList();
     final updated = playlists[index].copyWith(
       tracks: updatedTracks,
       trackCount: updatedTracks.length,
@@ -168,5 +180,22 @@ class LocalPlaylistRepository {
     );
     await _savePlaylist(updated);
     return updated;
+  }
+
+  Playlist _asLocalPlaylist(Playlist playlist) {
+    final now = DateTime.now();
+    return playlist.copyWith(
+      source: playlist.source ?? 'local',
+      trackCount: playlist.tracks.length,
+      isLocal: true,
+      createdAt: playlist.createdAt ?? now,
+      updatedAt: playlist.updatedAt ?? now,
+    );
+  }
+
+  int _compareCreatedAtDesc(Playlist a, Playlist b) {
+    final aCreatedAt = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final bCreatedAt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return bCreatedAt.compareTo(aCreatedAt);
   }
 }

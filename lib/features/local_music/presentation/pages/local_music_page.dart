@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../../data/local/local_music_repository.dart';
@@ -65,24 +67,26 @@ class _LocalMusicPageState extends ConsumerState<LocalMusicPage>
               title: const Text('本地音乐'),
               pinned: true,
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.refresh_rounded),
-                  tooltip: '重新扫描',
-                  onPressed: localMusic.isScanning
-                      ? null
-                      : () => ref
-                            .read(localMusicControllerProvider.notifier)
-                            .rescan(),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.create_new_folder_rounded),
-                  tooltip: '选择目录',
-                  onPressed: localMusic.isScanning
-                      ? null
-                      : () => ref
-                            .read(localMusicControllerProvider.notifier)
-                            .pickAndScanDirectory(),
-                ),
+                if (!kIsWeb)
+                  IconButton(
+                    icon: const Icon(Icons.refresh_rounded),
+                    tooltip: '重新扫描',
+                    onPressed: localMusic.isScanning
+                        ? null
+                        : () => ref
+                              .read(localMusicControllerProvider.notifier)
+                              .rescan(),
+                  ),
+                if (!kIsWeb)
+                  IconButton(
+                    icon: const Icon(Icons.create_new_folder_rounded),
+                    tooltip: '选择目录',
+                    onPressed: localMusic.isScanning
+                        ? null
+                        : () => ref
+                              .read(localMusicControllerProvider.notifier)
+                              .pickAndScanDirectory(),
+                  ),
               ],
             ),
             SliverPadding(
@@ -151,6 +155,7 @@ class _LocalMusicPageState extends ConsumerState<LocalMusicPage>
         },
         body: localMusic.tracks.isEmpty && !localMusic.isScanning
             ? _EmptyLocalLibrary(
+                isWeb: kIsWeb,
                 onPickDirectory: () => ref
                     .read(localMusicControllerProvider.notifier)
                     .pickAndScanDirectory(),
@@ -673,12 +678,13 @@ class _TrackMenu extends ConsumerWidget {
           default:
             if (action.startsWith('addTo:')) {
               final playlistId = action.substring(6);
-              ref
-                  .read(localPlaylistControllerProvider.notifier)
-                  .addTracks(playlistId, [track]);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('已添加到歌单')),
+              ref.read(localPlaylistControllerProvider.notifier).addTracks(
+                playlistId,
+                [track],
               );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('已添加到歌单')));
             }
         }
       },
@@ -702,14 +708,16 @@ class _TrackMenu extends ConsumerWidget {
           ),
         ),
         PopupMenuDivider(),
-        ...playlists.map((playlist) => PopupMenuItem(
-              value: 'addTo:${playlist.id}',
-              child: ListTile(
-                leading: const Icon(Icons.queue_music_rounded),
-                title: Text(playlist.name),
-                subtitle: Text('${playlist.trackCount} 首歌曲'),
-              ),
-            )),
+        ...playlists.map(
+          (playlist) => PopupMenuItem(
+            value: 'addTo:${playlist.id}',
+            child: ListTile(
+              leading: const Icon(Icons.queue_music_rounded),
+              title: Text(playlist.name),
+              subtitle: Text('${playlist.trackCount} 首歌曲'),
+            ),
+          ),
+        ),
         if (playlists.isNotEmpty) const PopupMenuDivider(),
         const PopupMenuItem(
           value: 'createPlaylist',
@@ -757,8 +765,9 @@ class _TrackMenu extends ConsumerWidget {
                 if (name.isEmpty) {
                   return;
                 }
-                final notifier =
-                    ref.read(localPlaylistControllerProvider.notifier);
+                final notifier = ref.read(
+                  localPlaylistControllerProvider.notifier,
+                );
                 final playlist = await notifier.createPlaylist(name);
                 if (playlist != null && tracks.isNotEmpty) {
                   await notifier.addTracks(playlist.id, tracks);
@@ -814,8 +823,12 @@ class _TabsHeaderDelegate extends SliverPersistentHeaderDelegate {
 }
 
 class _EmptyLocalLibrary extends StatelessWidget {
-  const _EmptyLocalLibrary({required this.onPickDirectory});
+  const _EmptyLocalLibrary({
+    required this.isWeb,
+    required this.onPickDirectory,
+  });
 
+  final bool isWeb;
   final VoidCallback onPickDirectory;
 
   @override
@@ -832,18 +845,26 @@ class _EmptyLocalLibrary extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(height: 16),
-            Text('选择一个音乐目录开始扫描', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              isWeb ? 'Web 客户端使用云端搜索播放' : '选择一个音乐目录开始扫描',
+              style: Theme.of(context).textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 8),
             Text(
-              '支持 MP3、FLAC、M4A、OGG、WAV 等格式，并会读取标签、封面和同名 LRC。',
+              isWeb
+                  ? '浏览器版暂不支持扫描本地目录，可在搜索页使用网易云登录态播放云端歌曲、歌词和封面。'
+                  : '支持 MP3、FLAC、M4A、OGG、WAV 等格式，并会读取标签、封面和同名 LRC。',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
-              onPressed: onPickDirectory,
-              icon: const Icon(Icons.folder_open_rounded),
-              label: const Text('选择目录'),
+              onPressed: isWeb ? () => context.go('/search') : onPickDirectory,
+              icon: Icon(
+                isWeb ? Icons.cloud_queue_rounded : Icons.folder_open_rounded,
+              ),
+              label: Text(isWeb ? '打开云端搜索' : '选择目录'),
             ),
           ],
         ),

@@ -85,10 +85,70 @@ void main() {
       ),
     );
     final span = richText.text as TextSpan;
-    final firstWord = span.children![0] as TextSpan;
-    final secondWord = span.children![1] as TextSpan;
+    final wordSpans = _leafTextSpans(
+      span,
+    ).where((span) => span.text?.trim().isNotEmpty == true).toList();
+    final firstWord = wordSpans[0];
+    final secondWord = wordSpans[1];
 
     expect(firstWord.style?.color?.a, 1);
     expect(secondWord.style?.color?.a, lessThan(1));
   });
+
+  testWidgets('LyricView anchors current line near visual center', (
+    tester,
+  ) async {
+    final lines = [
+      for (var index = 0; index < 40; index++)
+        LyricLine(
+          start: index * 1000,
+          end: (index + 1) * 1000,
+          text: 'line $index',
+        ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 320,
+            child: LyricView(
+              lines: lines,
+              currentIndex: 24,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final viewRect = tester.getRect(find.byType(LyricView));
+    final currentLineCenter = tester.getCenter(find.text('line 24'));
+
+    expect(
+      currentLineCenter.dy,
+      greaterThan(viewRect.top + viewRect.height * 0.28),
+    );
+    expect(
+      currentLineCenter.dy,
+      lessThan(viewRect.top + viewRect.height * 0.56),
+    );
+  });
+}
+
+Iterable<TextSpan> _leafTextSpans(InlineSpan span) sync* {
+  if (span is! TextSpan) {
+    return;
+  }
+
+  final children = span.children;
+  if (children == null || children.isEmpty) {
+    yield span;
+    return;
+  }
+
+  for (final child in children) {
+    yield* _leafTextSpans(child);
+  }
 }

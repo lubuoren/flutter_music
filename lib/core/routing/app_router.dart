@@ -61,6 +61,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   child: PlaylistPage(
                     playlistId: 'liked-songs',
                     title: '我喜欢的音乐',
+                    source: 'local',
                   ),
                 ),
               ),
@@ -79,6 +80,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   child: PlaylistPage(
                     playlistId: state.pathParameters['id'],
                     title: '本地歌单',
+                    source: 'local',
                   ),
                 ),
               ),
@@ -114,6 +116,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           child: PlaylistPage(
             playlistId: state.pathParameters['id'],
             title: '${state.pathParameters['service']} 歌单',
+            source: 'stream',
           ),
         ),
       ),
@@ -123,6 +126,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           child: PlaylistPage(
             playlistId: 'stream-${state.pathParameters['service']}-liked-songs',
             title: '${state.pathParameters['service']} 喜欢的音乐',
+            source: 'stream',
           ),
         ),
       ),
@@ -132,13 +136,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           child: PlaylistPage(
             playlistId: state.pathParameters['id'],
             title: '歌单',
+            source: 'netease',
           ),
         ),
       ),
       GoRoute(
         path: '/daily/songs',
         pageBuilder: (context, state) => NoTransitionPage(
-          child: PlaylistPage(playlistId: 'daily-songs', title: '每日推荐'),
+          child: PlaylistPage(
+            playlistId: 'daily-songs',
+            title: '每日推荐',
+            source: 'netease',
+          ),
         ),
       ),
       GoRoute(
@@ -193,6 +202,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             resourceId: state.pathParameters['id'],
           ),
         ),
+      ),
+      GoRoute(
+        path: '/player/lyrics',
+        pageBuilder: (context, state) =>
+            const NoTransitionPage(child: PlayerLyricsPage()),
       ),
       GoRoute(
         path: '/player',

@@ -17,7 +17,7 @@
 | 本地目录 | file_picker |
 | 权限 | permission_handler |
 | 元数据 | audio_metadata_reader |
-| 当前持久化 | shared_preferences |
+| 当前持久化 | sqflite + sqflite_common_ffi_web + shared_preferences 设置/旧快照迁移 |
 | 网络 | dio |
 | 主题 | Flutter Material 3 + m3e_design + material_new_shapes |
 | 桌面基础 | window_manager |
@@ -30,6 +30,7 @@ lib/
   app.dart                          MaterialApp.router + 主题装配
 
   core/
+    platform/                      封面、播放可用性等跨平台适配
     routing/app_router.dart         全量路由
     shell/app_shell.dart            侧栏/底栏 + 常驻播放栏
     theme/app_theme.dart            Light/Dark/Black + MD3E
@@ -37,12 +38,16 @@ lib/
   data/
     audio/music_audio_handler.dart  just_audio + audio_service 共享播放实例
     local/local_music_repository.dart
-                                    本地目录选择、权限、扫描、元数据读取、持久化
+                                    本地音乐状态、迁移与持久化
+    local/local_music_platform*.dart
+                                    原生目录选择、权限、扫描、元数据读取；Web 端明确降级
     local/local_music_state.dart    本地媒体库状态
+    remote/netease/                 api-enhanced Client、认证、音乐 Repository
     models/                         Track / Playlist / LyricLine
 
   features/
     home/                           首页与最近播放入口
+    login/                          网易云二维码/Cookie 登录态
     local_music/                    本地音乐扫描和歌曲列表
     player/
       application/                  播放器状态与控制器
@@ -83,9 +88,11 @@ lib/
 LocalMusicPage
   -> LocalMusicController
     -> LocalMusicRepository
-      -> file_picker / permission_handler
-      -> audio_metadata_reader
-      -> shared_preferences
+      -> LocalMusicPlatform
+        -> file_picker / permission_handler
+        -> audio_metadata_reader
+      -> sqflite(AppDatabase)
+      -> shared_preferences(旧快照只读迁移)
 ```
 
 扫描流程：
@@ -95,9 +102,13 @@ LocalMusicPage
 3. 递归查找 `audio_metadata_reader.supportedFileExtensions` 支持的音频文件。
 4. 读取标题、艺术家、专辑、时长、内嵌封面、内嵌歌词。
 5. 查找同名 `.lrc` 和目录下常见封面文件。
-6. 将媒体库快照保存到 `shared_preferences`。
+6. 将媒体库、喜欢状态和播放历史保存到 sqflite，旧 `shared_preferences` 快照只作为迁移来源读取。
 
-当前持久化是 Phase 2 MVP 方案；目标数据库见 [data-model.md](data-model.md)。
+当前持久化已完成 Phase 3 数据库迁移；表结构见 [data-model.md](data-model.md)。
+
+Web 客户端使用 `sqflite_common_ffi_web`，运行时需要 `web/sqflite_sw.js` 和
+`web/sqlite3.wasm`。浏览器端当前优先支持网易云云端搜索、播放、歌词和封面；
+本地目录扫描仍限定在桌面/移动原生端。
 
 ## 路由映射
 
@@ -141,7 +152,7 @@ Flutter 新增：
 | main 进程 IPC | Riverpod provider + 平台通道 |
 | Fastify 本地服务 + NeteaseCloudMusicApi | Dart HTTP client（dio）+ Repository，连接独立部署的 api-enhanced |
 | better-sqlite3 | sqflite/drift |
-| electron-store | shared_preferences；后续迁移数据库 |
+| electron-store | shared_preferences 用于轻量设置；媒体库与歌单已迁移到 sqflite |
 | atom:// 自定义协议 | 文件路径、字节流、HTTP(S) URL |
 | Web Audio 音效 | just_audio + 平台音效实现 |
 | tray / mpris / touchBar / thumbar | tray_manager / window_manager / 平台通道 |

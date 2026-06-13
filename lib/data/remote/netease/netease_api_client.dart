@@ -105,13 +105,23 @@ class NeteaseApiClient {
   }
 
   Map<String, Object?> _withCommonParameters(Map<String, Object?> parameters) {
-    return {
-      ...parameters,
-      if (config.proxy != null && config.proxy!.isNotEmpty)
-        'proxy': config.proxy,
-      if (config.realIp != null && config.realIp!.isNotEmpty)
-        'realIP': config.realIp,
-    };
+    final merged = {...parameters};
+    if (config.cookie != null &&
+        config.cookie!.isNotEmpty &&
+        !merged.containsKey('cookie')) {
+      merged['cookie'] = config.cookie;
+    }
+    if (config.proxy != null &&
+        config.proxy!.isNotEmpty &&
+        !merged.containsKey('proxy')) {
+      merged['proxy'] = config.proxy;
+    }
+    if (config.realIp != null &&
+        config.realIp!.isNotEmpty &&
+        !merged.containsKey('realIP')) {
+      merged['realIP'] = config.realIp;
+    }
+    return merged;
   }
 
   Map<String, String>? get _headers {

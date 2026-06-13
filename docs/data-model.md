@@ -2,7 +2,7 @@
 
 原 VutronMusic 使用 better-sqlite3 + electron-store。数据库大量采用 `id + json` 的宽松结构，便于缓存不同来源的歌曲、专辑、歌单和账号数据。
 
-Flutter 端当前处于 Phase 2 MVP：本地媒体库暂存于 `shared_preferences`。后续将迁移到 sqflite/drift，并保留与原项目相近的 `id + json` 思路。
+Flutter 端当前已完成 `shared_preferences` → sqflite 迁移：本地媒体库、歌单、喜欢歌曲和播放历史使用 sqflite 保存，Web 客户端通过 `sqflite_common_ffi_web` 使用 IndexedDB 持久化 SQLite 数据，旧 `shared_preferences` 快照仅作为一次性迁移来源。数据库仍保留与原项目相近的 `id + json` 思路。
 
 原项目源码参考位于 `third_party/VutronMusic/`，其中 `src/public/migrations/`、`src/main/db.ts` 和 `src/renderer/store/` 是数据迁移的主要对照来源。
 
@@ -22,12 +22,12 @@ Flutter 端当前处于 Phase 2 MVP：本地媒体库暂存于 `shared_preferenc
 | `type` | `local` / `online` / `stream` |
 | `source` | 具体来源，如 `localTrack`、`netease`、`navidrome` |
 | `filePath` | 本地文件路径 |
-| `coverUrl` | 封面路径或 URL |
+| `coverUrl` | 封面路径或 URL；网易云在线播放前通过 `/song/detail` 补齐云端封面 |
 | `url` | 播放 URL；本地歌曲为 file URI |
-| `lyrics` | 内嵌歌词或同名 `.lrc` 内容 |
+| `lyrics` | 内嵌歌词、同名 `.lrc` 内容，或网易云 `/lyric/new` 云端歌词 |
 | `matched` | 是否已匹配在线信息 |
 | `cache` | 是否命中缓存 |
-| `offset` | 歌词偏移 |
+| `offset` | 歌词偏移；本地歌曲同步进 `tracks`，云端歌曲通过 `shared_preferences.lyric_offsets.v1.*` 轻量持久化 |
 | `md5` | 当前用于保存歌词内容 sha1；后续可调整为音频文件 hash |
 | `playCount` | 播放次数 |
 | `isLiked` | 是否喜欢 |
@@ -38,25 +38,35 @@ Flutter 端当前处于 Phase 2 MVP：本地媒体库暂存于 `shared_preferenc
 
 文件：`lib/data/models/playlist.dart`
 
-当前为统一歌单模型，覆盖本地、网易云、流媒体三类来源。Phase 2 尚未实现本地歌单增删改。
+当前为统一歌单模型，覆盖本地、网易云、流媒体三类来源。本地歌单 CRUD 已接入 sqflite，旧 `shared_preferences` 歌单会在加载时幂等合并回数据库。网易云歌单会额外携带 `creatorUserId`、`creatorName` 和 `subscribed`，用于音乐库页区分创建/收藏歌单与详情页展示作者信息。
 
 ### LyricLine
 
 文件：`lib/data/models/lyric_line.dart`
 
-已保留普通歌词与逐字歌词模型。当前播放页展示原始歌词文本，后续需要接 LRC/LDDC 解析与滚动同步。
+已保留普通歌词与逐字歌词模型。当前播放页已接入 LRC 滚动歌词；逐字歌词/LDDC 解析和逐字高亮仍待接入。
 
 ## 当前持久化
 
-文件：`lib/data/local/local_music_repository.dart`
+文件：
 
-| Key | 内容 |
+- `lib/data/local/database/app_database.dart`
+- `lib/data/local/local_music_repository.dart`
+- `lib/features/playlist/application/local_playlist_repository.dart`
+
+| 表/Key | 内容 |
 |---|---|
-| `local_music.tracks.v1` | `Track.toJson()` 列表 |
-| `local_music.directories.v1` | 已扫描目录列表 |
-| `local_music.last_scanned_at.v1` | 最近扫描时间 |
+| `tracks` | `Track.toJson()` 宽表快照 |
+| `playlists` / `playlist_tracks` | 本地歌单与歌曲顺序 |
+| `liked_tracks` | 喜欢歌曲索引 |
+| `play_history` | 最近播放记录 |
+| `app_data.local_music.directories.v1` | 已扫描目录列表 |
+| `app_data.local_music.last_scanned_at.v1` | 最近扫描时间 |
+| `shared_preferences.netease.auth.cookie.v1` | 网易云登录 Cookie |
+| `shared_preferences.netease.auth.profile.v1` | 网易云账号资料快照 |
+| `shared_preferences.lyric_offsets.v1.<source>.<trackId>` | 歌词偏移，覆盖云端歌曲和队列内即时调整 |
 
-当前实现适合 MVP 和小规模媒体库。迁移数据库时需要提供一次性导入逻辑，将这些 key 中的数据写入 `tracks`、`play_history`、`liked_tracks` 等表。
+旧 `shared_preferences` keys（`local_music.tracks.v1`、`local_music.directories.v1`、`local_music.last_scanned_at.v1`、`local_playlists.v1`）仍会被读取用于一次性或幂等迁移，运行时主数据以 sqflite 为准。
 
 ## 原始表结构参考
 
@@ -83,7 +93,7 @@ Flutter 端当前处于 Phase 2 MVP：本地媒体库暂存于 `shared_preferenc
 - 2.4.0：未匹配歌曲/专辑封面改为 `/local-asset/pic?id=`。
 - 2.5.0：本地资源 URL 改为 `atom://local-asset?type=pic`。
 
-## 目标数据库
+## 当前数据库
 
 目标位置：
 
@@ -93,7 +103,7 @@ lib/data/local/database/
   migrations/
 ```
 
-建议首版表：
+首版表：
 
 ```text
 tracks(id, type, source, file_path, json, updated_at)
@@ -119,13 +129,13 @@ Flutter 端映射为：
 - 内嵌封面：扫描时写入应用支持目录的 `covers/` 子目录。
 - 目录封面：直接保存本地图片路径。
 - 在线歌曲：HTTP(S) 直链或后续代理直链。
-- 歌词：当前保存在 `Track.lyrics`，后续迁移到 `lyrics` 表。
+- 歌词：当前保存在 `Track.lyrics`，本地歌词来自内嵌/外挂 LRC，网易云在线歌词来自 `/lyric/new`；后续可迁移到 `lyrics` 表做缓存。
 
-## 数据迁移顺序
+## 数据迁移状态
 
-1. 引入 sqflite/drift 和数据库初始化。
-2. 建立首版 schema 与迁移脚本目录。
-3. 启动时读取 `shared_preferences` 中的 Phase 2 快照并导入数据库。
-4. 本地扫描写入数据库，不再覆盖整份 JSON 列表。
-5. 播放历史、喜欢歌曲、本地歌单改为增量写入。
-6. 移除或保留只读兼容的旧 key。
+1. ✅ 引入 sqflite 和数据库初始化。
+2. ✅ 建立首版 schema 与迁移脚本目录。
+3. ✅ 启动时读取 `shared_preferences` 中的 Phase 2 快照并导入数据库。
+4. ✅ 本地扫描写入数据库，不再写回旧媒体库 JSON 列表。
+5. ✅ 播放历史、喜欢歌曲、本地歌单改为数据库写入。
+6. 🟡 旧 key 保留只读兼容，后续可在确认迁移稳定后清理。

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/platform/cover_image_provider.dart';
+import '../../../../data/models/track.dart';
+import '../../../player/application/player_controller.dart';
 import '../../application/netease_search_controller.dart';
 
 class SearchPage extends ConsumerStatefulWidget {
@@ -29,6 +32,20 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(neteaseSearchControllerProvider);
+    final player = ref.watch(musicPlayerControllerProvider);
+
+    ref.listen(
+      neteaseSearchControllerProvider.select(
+        (state) => state.playbackErrorMessage,
+      ),
+      (previous, next) {
+        if (next != null && next != previous && mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(next)));
+        }
+      },
+    );
 
     return Scaffold(
       body: CustomScrollView(
@@ -67,7 +84,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 else if (state.errorMessage != null)
                   _SearchMessage(
                     icon: Icons.cloud_off_rounded,
-                    title: '搜索失败',
+                    title: '请求失败',
                     subtitle:
                         '${state.errorMessage}\n请确认设置页里的 api-enhanced 服务地址可访问。',
                   )
@@ -75,8 +92,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   const _SearchMessage(
                     icon: Icons.manage_search_rounded,
                     title: '开始在线搜索',
-                    subtitle:
-                        'Phase 4 先接入 api-enhanced 的搜索接口，播放 URL、登录和喜欢歌曲会继续补齐。',
+                    subtitle: 'Phase 4 已接入歌曲搜索和播放地址解析，登录和喜欢歌曲会继续补齐。',
                   )
                 else if (state.results.isEmpty)
                   _SearchMessage(
@@ -85,12 +101,20 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                     subtitle: '换一个关键词再试试：${state.keyword}',
                   )
                 else
-                  ...state.results.map(
-                    (track) => Card(
+                  ...state.results.map((track) {
+                    final isResolving = state.resolvingTrackId == track.id;
+                    final isCurrent =
+                        player.currentTrack?.id == track.id &&
+                        player.currentTrack?.source == track.source;
+                    return Card(
+                      color: isCurrent
+                          ? Theme.of(context).colorScheme.secondaryContainer
+                          : null,
                       child: ListTile(
-                        leading: const CircleAvatar(
-                          child: Icon(Icons.music_note_rounded),
-                        ),
+                        enabled: !isResolving,
+                        selected: isCurrent,
+                        onTap: isResolving ? null : () => _playTrack(track),
+                        leading: _TrackAvatar(coverUrl: track.coverUrl),
                         title: Text(
                           track.title,
                           maxLines: 1,
@@ -104,10 +128,21 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        trailing: const Icon(Icons.cloud_queue_rounded),
+                        trailing: isResolving
+                            ? const SizedBox.square(
+                                dimension: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : IconButton(
+                                icon: const Icon(Icons.play_arrow_rounded),
+                                tooltip: '播放',
+                                onPressed: () => _playTrack(track),
+                              ),
                       ),
-                    ),
-                  ),
+                    );
+                  }),
               ],
             ),
           ),
@@ -120,6 +155,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     ref
         .read(neteaseSearchControllerProvider.notifier)
         .search(_searchController.text);
+  }
+
+  void _playTrack(Track track) {
+    ref.read(neteaseSearchControllerProvider.notifier).playTrack(track);
   }
 }
 
@@ -152,6 +191,21 @@ class _SearchMessage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _TrackAvatar extends StatelessWidget {
+  const _TrackAvatar({required this.coverUrl});
+
+  final String? coverUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final image = coverImageProvider(coverUrl);
+    return CircleAvatar(
+      backgroundImage: image,
+      child: image == null ? const Icon(Icons.music_note_rounded) : null,
     );
   }
 }

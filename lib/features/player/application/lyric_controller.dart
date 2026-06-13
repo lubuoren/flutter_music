@@ -37,6 +37,10 @@ final lyricControllerProvider =
 
 class LyricController extends StateNotifier<LyricState> {
   LyricController(this._ref) : super(const LyricState()) {
+    final player = _ref.read(musicPlayerControllerProvider);
+    _onTrackChanged(player.currentTrack?.lyrics, player.currentTrack?.id);
+    _onPositionChanged(player.position);
+
     _ref.listen(
       musicPlayerControllerProvider.select((state) => state.currentTrack),
       (previous, next) {
@@ -69,6 +73,7 @@ class LyricController extends StateNotifier<LyricState> {
       clearCurrentIndex: true,
       trackId: trackId,
     );
+    _onPositionChanged(_ref.read(musicPlayerControllerProvider).position);
   }
 
   void _onPositionChanged(Duration position) {

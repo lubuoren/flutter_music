@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "/home/luboren/Flutter Projects/flutter_music/linux"
+    "cmake.sourceDirectory": "/home/luboren/Flutter Projects/flutter_music/linux",
+    "java.configuration.updateBuildConfiguration": "disabled"
 }

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
@@ -17,7 +16,11 @@ class MusicAudioHandler extends BaseAudioHandler {
   final AudioPlayer player = AudioPlayer();
   final List<StreamSubscription<Object?>> _subscriptions = [];
 
-  Future<void> setTracks(List<Track> tracks, {required int startIndex}) async {
+  Future<void> setTracks(
+    List<Track> tracks, {
+    required int startIndex,
+    Duration? initialPosition,
+  }) async {
     final mediaItems = tracks.map(_toMediaItem).toList();
     queue.add(mediaItems);
     mediaItem.add(
@@ -33,6 +36,7 @@ class MusicAudioHandler extends BaseAudioHandler {
         ],
       ),
       initialIndex: startIndex,
+      initialPosition: initialPosition,
     );
   }
 
@@ -126,7 +130,7 @@ class MusicAudioHandler extends BaseAudioHandler {
       artist: track.artists.join(' / '),
       album: track.album,
       duration: track.durationMs == 0 ? null : track.duration,
-      artUri: track.coverUrl == null ? null : Uri.file(track.coverUrl!),
+      artUri: _artUri(track.coverUrl),
       extras: {
         'source': track.source,
         'type': track.type.name,
@@ -136,10 +140,29 @@ class MusicAudioHandler extends BaseAudioHandler {
   }
 
   Uri _trackUri(Track track) {
+    final url = track.url?.trim();
+    if (url != null && url.isNotEmpty) {
+      return Uri.parse(url);
+    }
+
     final filePath = track.filePath;
     if (filePath != null && filePath.isNotEmpty) {
-      return Uri.file(File(filePath).absolute.path);
+      return Uri.file(filePath);
     }
-    return Uri.parse(track.url!);
+    throw StateError('歌曲缺少可播放地址');
+  }
+
+  Uri? _artUri(String? value) {
+    if (value == null || value.isEmpty) {
+      return null;
+    }
+    final uri = Uri.tryParse(value);
+    if (uri != null &&
+        (uri.scheme == 'http' ||
+            uri.scheme == 'https' ||
+            uri.scheme == 'file')) {
+      return uri;
+    }
+    return Uri.file(value);
   }
 }

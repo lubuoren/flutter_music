@@ -9,9 +9,9 @@ VutronMusic 的 Flutter + MD3/MD3E 重构项目。
 > Phase 0 / Phase 1 已完成。Phase 2 本地音乐 MVP 已完成。
 > Phase 3 MD3/MD3E 完整 UI 已完成：首页、本地音乐页、播放页、设置页、
 > LRC 滚动歌词、本地歌单 CRUD、shared_preferences → sqflite 数据库迁移均已实现。
-> Phase 4 已开始，网易云在线音乐能力将基于
+> Phase 4 正在推进，网易云在线音乐能力基于
 > [NeteaseCloudMusicApiEnhanced/api-enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced)
-> 自建 HTTP API 服务接入。
+> 自建 HTTP API 服务接入；浏览器 Web 客户端已可构建，当前主打云端搜索/播放/歌词/封面。
 
 ## 文档
 
@@ -68,7 +68,7 @@ darkTheme: ColorScheme.fromSeed(
 | Phase 1 | MD3/MD3E 设计系统与播放器壳 |
 | Phase 2 | 本地音乐 MVP | ✅ |
 | Phase 3 | MD3/MD3E 完整 UI | ✅ |
-| Phase 4 | 在线音乐迁移 | ⬜ |
+| Phase 4 | 在线音乐迁移 | 🟡 |
 | Phase 5 | 流媒体服务支持 | ⬜ |
 | Phase 6 | 高级音频与歌词 | ⬜ |
 | Phase 7 | 桌面平台增强 | ⬜ |
@@ -95,15 +95,20 @@ darkTheme: ColorScheme.fromSeed(
 ## Phase 4 进行中
 
 - ✅ 网易云 API 接入层打底：新增 `lib/data/remote/netease/`，使用 `dio` 调用 `api-enhanced` HTTP 服务；
-- ✅ 设置页新增 Netease API Base URL，默认 `http://127.0.0.1:3000`；
-- ✅ 搜索页接入网易云歌曲搜索并映射为统一 `Track` 模型；
-- 🟡 待接入：二维码登录/Cookie、歌曲播放 URL、歌单/专辑/艺术家/评论/MV/每日推荐。
+- ✅ 设置页新增 Netease API Base URL，桌面/iOS/Web 默认 `http://127.0.0.1:3000`，Android 模拟器默认 `http://10.0.2.2:3000`；
+- ✅ 搜索页接入网易云歌曲搜索并映射为统一 `Track` 模型，搜索结果会批量请求 `/song/detail` 补齐封面；
+- ✅ 搜索结果可通过 `/song/url` 解析播放地址并加入播放器播放；
+- ✅ 二维码登录、Cookie 导入、登录态校验与退出登录基础闭环；
+- ✅ 在线歌曲播放前补齐 `/song/detail` 云端封面与 `/lyric/new` 云端歌词；
+- ✅ 云端歌曲歌词 offset 可在播放器内调整并持久化；
+- ✅ Web 客户端基础支持：Web SQLite 资产、平台封面/播放适配、浏览器端云端播放入口；
+- 🟡 待接入：手机号/邮箱登录、歌单/专辑/艺术家/评论/MV/每日推荐。
 
 网易云服务准备：
 
 ```text
 api-enhanced 仓库：https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced
-Flutter 默认连接：http://127.0.0.1:3000
+Flutter 默认连接：桌面/iOS/Web 为 http://127.0.0.1:3000，Android 模拟器为 http://10.0.2.2:3000
 ```
 
 Flutter 客户端不内置 Node.js 服务，开发和自用时请独立运行或部署 `api-enhanced`，再在设置页填写服务地址。

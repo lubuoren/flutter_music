@@ -3,7 +3,7 @@
 本文件整理 VutronMusic `src/renderer/api/*.ts` 中调用的网易云接口，作为 Flutter 端
 `lib/data/remote/netease/` Repository 的契约清单。
 
-当前状态：Phase 4 已开始。Flutter 端已建立 `data/remote/netease` 接入层，并完成歌曲搜索的首个闭环；其余接口仍按本文件逐步迁移。
+当前状态：Phase 4 正在推进。Flutter 端已建立 `data/remote/netease` 接入层，完成歌曲搜索、`/song/url` 播放地址解析、二维码/Cookie 登录态、`/song/detail` 云端封面补齐、`/lyric/new` 云端歌词、云端歌词 offset、云端歌单列表/详情与搜索结果/歌单歌曲播放闭环；其余接口仍按本文件逐步迁移。
 
 ## API 服务选型
 
@@ -13,9 +13,9 @@
 
 接入约定：
 
-- 开发默认 Base URL：`http://127.0.0.1:3000`。
+- 开发默认 Base URL：桌面/iOS/Web 为 `http://127.0.0.1:3000`，Android 模拟器为 `http://10.0.2.2:3000`。
 - Base URL 可在应用设置页修改并持久化。
-- 桌面端可访问本机服务；Android 模拟器访问宿主机时通常需要改为 `http://10.0.2.2:3000`。
+- 桌面端和 iOS 模拟器可访问宿主机 localhost；Android 模拟器访问宿主机需使用 `10.0.2.2`。
 - 真机需填写局域网或已部署的 HTTPS 地址，生产环境不依赖公开演示服务。
 - `api-enhanced` 作为独立服务运行或部署，Flutter 仓库不 vendoring 其源码。
 - 上游接口可能随网易云策略变化，所有响应解析集中在 Repository 层，页面不直接依赖原始 JSON。
@@ -42,14 +42,21 @@ lib/data/remote/netease/
 当前已实现：
 
 - `NeteaseApiClient`：Base URL、超时、Cookie/代理/realIP 通用参数、错误包装。
+- `NeteaseAuthRepository`：二维码 key/图片、扫码状态轮询、Cookie 规范化、登录态校验、退出登录。
 - `NeteaseMusicRepository.searchTracks`：调用 `/search` 并映射统一 `Track`。
+- `NeteaseMusicRepository.tracksWithRemoteDetails`：搜索后批量调用 `/song/detail`，补齐结果列表封面与详情。
+- `NeteaseMusicRepository.resolvePlaybackUrl`：调用 `/song/url`，将搜索结果补齐为可播放 `Track.url`。
+- `NeteaseMusicRepository.resolvePlayableTrack`：播放前补齐 `/song/detail` 封面详情与 `/lyric/new` 歌词。
+- `NeteaseMusicRepository.tracksByIds`：按 `trackIds` 批量调用 `/song/detail`，补齐歌单完整歌曲列表。
+- `NeteaseMusicRepository.tracksWithPlaybackUrls`：批量调用 `/song/url`，为歌单播放队列补齐播放地址。
+- `NeteasePlaylistRepository`：调用 `/user/playlist` 和 `/playlist/detail`，映射统一 `Playlist`，并在详情 `tracks` 不完整时按 `trackIds` 补齐。
+- `LyricOffsetRepository`：为网易云等云端歌曲保存播放器内调整的歌词 offset。
 
 下一步顺序：
 
-1. 二维码登录、Cookie 持久化、登录态校验；
-2. `/song/url` 或对应增强接口解析在线歌曲播放 URL；
-3. 歌单、专辑、艺术家详情；
-4. 每日推荐、私人 FM、评论和 MV。
+1. 手机号/邮箱登录；
+2. 专辑、艺术家详情；
+3. 每日推荐、私人 FM、评论和 MV。
 
 ## auth.ts 登录与账号
 
@@ -60,11 +67,11 @@ lib/data/remote/netease/
 | loginWithEmail | POST | /login | 邮箱登录 |
 | loginQrCodeKey | GET | /login/qr/key | 获取二维码 key |
 | loginQrCodeCheck | GET | /login/qr/check | 轮询扫码状态 |
-| refreshCookie | GET | /login/refresh | 刷新 Cookie |
+| refreshCookie | POST | /login/refresh | 刷新 Cookie |
 | userAccount | GET | /user/account | 账号信息 |
 | getQrImg | GET | /login/qr/create | 二维码图片 |
-| getLoginStatus | GET | /login/status | 登录状态 |
-| logout | GET | /logout | 退出登录 |
+| getLoginStatus | POST | /login/status | 登录状态 |
+| logout | POST | /logout | 退出登录 |
 
 ## track.ts 歌曲
 

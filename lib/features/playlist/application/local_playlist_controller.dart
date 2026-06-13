@@ -24,8 +24,7 @@ class LocalPlaylistState {
     return LocalPlaylistState(
       playlists: playlists ?? this.playlists,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage:
-          clearError ? null : errorMessage ?? this.errorMessage,
+      errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
     );
   }
 }
@@ -37,8 +36,7 @@ final localPlaylistControllerProvider =
     });
 
 class LocalPlaylistController extends StateNotifier<LocalPlaylistState> {
-  LocalPlaylistController(this._repository)
-      : super(const LocalPlaylistState());
+  LocalPlaylistController(this._repository) : super(const LocalPlaylistState());
 
   final LocalPlaylistRepository _repository;
 
@@ -48,17 +46,11 @@ class LocalPlaylistController extends StateNotifier<LocalPlaylistState> {
       final playlists = await _repository.loadPlaylists();
       state = state.copyWith(playlists: playlists, isLoading: false);
     } on Object catch (error) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: '加载歌单失败：$error',
-      );
+      state = state.copyWith(isLoading: false, errorMessage: '加载歌单失败：$error');
     }
   }
 
-  Future<Playlist?> createPlaylist(
-    String name, {
-    String? description,
-  }) async {
+  Future<Playlist?> createPlaylist(String name, {String? description}) async {
     try {
       final playlist = await _repository.createPlaylist(
         name,

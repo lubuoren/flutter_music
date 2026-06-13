@@ -101,5 +101,37 @@ void main() {
       expect(lines.single.text, '你好');
       expect(lines.single.words.map((word) => word.text), ['你', '好']);
     });
+
+    test('同时间戳英文翻译合并到 translation', () {
+      const lrc = '[00:01.00]你好\n[00:01.00]Hello';
+      final lines = parseLrc(lrc);
+
+      expect(lines, hasLength(1));
+      expect(lines.single.text, '你好');
+      expect(lines.single.translation, 'Hello');
+      expect(lines.single.end, 6000);
+    });
+
+    test('同时间戳原文和中文翻译使用下一句时间作为 end', () {
+      const lrc = '''
+[00:01.430]Vocal：星尘
+[00:02.510]Hey, it's time to watch me bang bang (Ah~)
+[00:02.510]嘿，是时候把目光聚焦于我
+[00:09.060]Let's get, let's get it started…
+[00:09.060]那就让我们开始吧
+''';
+      final lines = parseLrc(lrc);
+
+      expect(lines, hasLength(3));
+      expect(lines[0].text, 'Vocal：星尘');
+      expect(lines[0].start, 1430);
+      expect(lines[0].end, 2510);
+      expect(lines[1].text, "Hey, it's time to watch me bang bang (Ah~)");
+      expect(lines[1].translation, '嘿，是时候把目光聚焦于我');
+      expect(lines[1].start, 2510);
+      expect(lines[1].end, 9060);
+      expect(lines[2].text, "Let's get, let's get it started…");
+      expect(lines[2].translation, '那就让我们开始吧');
+    });
   });
 }

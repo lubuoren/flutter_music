@@ -9,9 +9,9 @@
 
 ## 近期焦点
 
-1. Phase 3 UI 已基本完成：首页、本地音乐页、设置页、播放页、播放栏、队列页均已实现完整功能。
-2. 剩余 Phase 3 工作：LRC 滚动歌词接入、本地歌单 CRUD、数据库迁移。
-3. Phase 4 在线音乐接入前补单元测试覆盖。
+1. Phase 3 UI 与本地音乐主流程已完成：首页、本地音乐页、设置页、播放页、播放栏、队列页、本地歌单 CRUD、数据库迁移均已接入。
+2. Phase 4 已接入网易云歌曲搜索、`/song/url` 播放地址解析、云端封面、云端歌词、云端歌词 offset、云端歌单列表/详情、评论只读列表和 Web 客户端基础支持，搜索结果与歌单歌曲可直接进入播放器。
+3. 后续 Phase 4 优先补手机号/邮箱登录、专辑/艺术家详情、每日推荐、评论写操作和 MV。
 
 ## 1. 应用框架与导航
 
@@ -56,7 +56,7 @@
 | 普通 LRC 解析与滚动 | components/LyricPage.vue | features/lyric | ✅ |
 | 逐字歌词（LDDC） | LyricLine.vue, types/music | data/models/lyric_line.dart | 🟡 |
 | 翻译歌词 | store/player.ts | data/models/lyric_line.dart | ✅ |
-| 歌词偏移 | player.ts lyricOffset | features/player | ⬜ |
+| 歌词偏移 | player.ts lyricOffset | features/player | ✅ 本地与云端歌曲均可调整，云端偏移使用 shared_preferences 持久化 |
 | 桌面歌词/OSD | views/OSDLyric.vue, store/osdLyric.ts | features/lyric + window_manager | ⬜ |
 
 ## 5. 本地音乐
@@ -75,12 +75,16 @@
 
 | 功能 | 原项目 | Flutter 目标 | 状态 |
 |---|---|---|---|
-| 登录（二维码/手机/邮箱） | api/auth.ts, views/LoginAccount.vue | features/login | ⬜ |
-| 搜索 | api/other.ts, views/SearchPage.vue | features/search | ⬜ |
-| 歌单 | api/playlist.ts, views/PlaylistPage.vue | features/playlist | ⬜ |
+| 登录（二维码/手机/邮箱） | api/auth.ts, views/LoginAccount.vue | features/login | 🟡 二维码/Cookie 登录态已接入，手机/邮箱待补 |
+| 搜索 | api/other.ts, views/SearchPage.vue | features/search | 🟡 歌曲搜索与播放已接入，其他搜索类型待补 |
+| 歌曲播放 URL | api/other.ts /song/url, store/player.ts | data/remote/netease + features/search | ✅ |
+| 云端歌曲封面 | api/track.ts /song/detail, player.ts getPic | data/remote/netease + player UI | ✅ |
+| 云端歌词 | api/track.ts /lyric/new, store/player.ts getLyric | data/remote/netease + player lyrics | ✅ |
+| Web 客户端云端播放 | Electron 桌面主入口 | core/platform + sqflite_common_ffi_web | ✅ 浏览器端已可构建，优先支持云端搜索/播放/歌词/封面 |
+| 歌单 | api/playlist.ts, views/PlaylistPage.vue | features/playlist | 🟡 云端歌单列表、详情、搜索和播放已接入，订阅/编辑/删除待补 |
 | 专辑 | api/album.ts, views/AlbumPage.vue | features/album | ⬜ |
 | 艺术家 | api/artist.ts, views/ArtistPage.vue | features/artist | ⬜ |
-| 评论 | api/comment.ts, components/CommentPage.vue | features/comments | ⬜ |
+| 评论 | api/comment.ts, components/CommentPage.vue | features/comments | 🟡 `/comment/new` 列表、推荐/最热/最新切换与分页已接入，点赞/发表/楼层详情待补 |
 | MV | api/mv.ts, views/MvPage.vue | features/mv | ⬜ |
 | 每日推荐 | api/playlist.ts, views/DailyTracks.vue | features/playlist | ⬜ |
 | 私人 FM | api/other personalFM, components/FMCard.vue | features/player | ⬜ |

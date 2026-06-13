@@ -1,6 +1,17 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+String defaultNeteaseApiBaseUrl() {
+  if (kIsWeb) {
+    return 'http://127.0.0.1:3000';
+  }
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.android => 'http://10.0.2.2:3000',
+    _ => 'http://127.0.0.1:3000',
+  };
+}
 
 final appSettingsControllerProvider =
     StateNotifierProvider<AppSettingsController, AppSettingsState>((ref) {
@@ -55,7 +66,8 @@ class AppSettingsState {
 }
 
 class AppSettingsController extends StateNotifier<AppSettingsState> {
-  AppSettingsController() : super(const AppSettingsState());
+  AppSettingsController()
+    : super(AppSettingsState(neteaseApiBaseUrl: defaultNeteaseApiBaseUrl()));
 
   static const _themeModeKey = 'settings.theme_mode.v1';
   static const _showBannerKey = 'settings.show_banner.v1';
@@ -76,7 +88,7 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
       fadeDuration: preferences.getDouble(_fadeDurationKey) ?? 0.2,
       neteaseApiBaseUrl:
           preferences.getString(_neteaseApiBaseUrlKey) ??
-          const AppSettingsState().neteaseApiBaseUrl,
+          defaultNeteaseApiBaseUrl(),
     );
   }
 
@@ -112,7 +124,7 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
 
   Future<void> setNeteaseApiBaseUrl(String value) async {
     final normalizedValue = value.trim().isEmpty
-        ? const AppSettingsState().neteaseApiBaseUrl
+        ? defaultNeteaseApiBaseUrl()
         : value.trim();
     state = state.copyWith(neteaseApiBaseUrl: normalizedValue);
     final preferences = await SharedPreferences.getInstance();

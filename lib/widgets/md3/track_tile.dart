@@ -1,6 +1,6 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+
+import '../../core/platform/cover_image_provider.dart';
 
 class TrackTileData {
   const TrackTileData({
@@ -35,16 +35,15 @@ class TrackTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final coverImage = coverImageProvider(track.coverPath);
 
     return Card(
       color: selected ? colorScheme.secondaryContainer : null,
       child: ListTile(
         onTap: onTap,
         leading: CircleAvatar(
-          backgroundImage: track.coverPath == null
-              ? null
-              : FileImage(File(track.coverPath!)) as ImageProvider,
-          child: track.coverPath == null
+          backgroundImage: coverImage,
+          child: coverImage == null
               ? const Icon(Icons.music_note_rounded)
               : null,
         ),

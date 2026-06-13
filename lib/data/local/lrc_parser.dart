@@ -8,7 +8,7 @@ import '../models/lyric_line.dart';
 /// - 网易云 YRC：`[start,duration](wordStart,wordDuration,0)字`
 /// - WRC/逐字 LRC：`[00:01.000]字[00:01.200]词`
 ///
-/// 返回值按 `start` 时间升序排列，每行的 `end` 设置为下一行的 `start`。
+/// 返回值按 `start` 时间升序排列，每行的 `end` 设置为下一句不同时间戳的 `start`。
 List<LyricLine> parseLrc(String lrcContent) {
   if (lrcContent.trim().isEmpty) {
     return const [];
@@ -49,10 +49,9 @@ List<LyricLine> parseLrc(String lrcContent) {
   plainLines.sort((a, b) => a.start.compareTo(b.start));
   for (var index = 0; index < plainLines.length; index++) {
     final current = plainLines[index];
-    final next = index + 1 < plainLines.length ? plainLines[index + 1] : null;
     final line = LyricLine(
       start: current.start,
-      end: next?.start ?? current.start + 5000,
+      end: _nextDistinctStart(plainLines, index) ?? current.start + 5000,
       text: current.text,
     );
     lyricMap.putIfAbsent(line.start, () => []).add(line);
@@ -69,7 +68,10 @@ List<LyricLine> parseLrc(String lrcContent) {
 
     var base = lines.first;
     for (final candidate in lines.skip(1)) {
-      if (chinesePattern.hasMatch(candidate.text)) {
+      if (candidate.text.isNotEmpty &&
+          candidate.text != base.text &&
+          (base.translation == null ||
+              chinesePattern.hasMatch(candidate.text))) {
         base = _copyWithTranslation(base, candidate.text);
       }
     }
@@ -77,6 +79,17 @@ List<LyricLine> parseLrc(String lrcContent) {
   }
 
   return result;
+}
+
+int? _nextDistinctStart(List<LyricLine> lines, int index) {
+  final currentStart = lines[index].start;
+  for (var nextIndex = index + 1; nextIndex < lines.length; nextIndex++) {
+    final nextStart = lines[nextIndex].start;
+    if (nextStart != currentStart) {
+      return nextStart;
+    }
+  }
+  return null;
 }
 
 LyricLine _copyWithTranslation(LyricLine line, String translation) {

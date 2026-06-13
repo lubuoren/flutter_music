@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../data/local/local_music_repository.dart';
+import '../../../login/application/netease_auth_controller.dart';
 import '../../application/app_settings_controller.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -11,6 +13,7 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsControllerProvider);
     final localMusic = ref.watch(localMusicControllerProvider);
+    final neteaseAuth = ref.watch(neteaseAuthControllerProvider);
     final settingsController = ref.read(appSettingsControllerProvider.notifier);
     final localController = ref.read(localMusicControllerProvider.notifier);
 
@@ -102,6 +105,24 @@ class SettingsPage extends ConsumerWidget {
                     _NeteaseApiBaseUrlTile(
                       value: settings.neteaseApiBaseUrl,
                       onSubmitted: settingsController.setNeteaseApiBaseUrl,
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.account_circle_rounded),
+                      title: const Text('网易云账号'),
+                      subtitle: Text(
+                        neteaseAuth.isLoggedIn
+                            ? '${neteaseAuth.profile!.nickname} · UID ${neteaseAuth.profile!.userId}'
+                            : neteaseAuth.hasCookie
+                            ? '已保存 Cookie，等待校验登录态'
+                            : '未登录',
+                      ),
+                      trailing: neteaseAuth.isLoading
+                          ? const SizedBox.square(
+                              dimension: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.chevron_right_rounded),
+                      onTap: () => context.push('/login/account'),
                     ),
                     const ListTile(
                       leading: Icon(Icons.info_outline_rounded),
@@ -217,8 +238,8 @@ class _NeteaseApiBaseUrlTileState extends State<_NeteaseApiBaseUrlTile> {
         padding: const EdgeInsets.only(top: 8),
         child: TextField(
           controller: _controller,
-          decoration: const InputDecoration(
-            hintText: 'http://127.0.0.1:3000',
+          decoration: InputDecoration(
+            hintText: defaultNeteaseApiBaseUrl(),
             border: OutlineInputBorder(),
             isDense: true,
           ),

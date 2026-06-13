@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../../core/platform/cover_image_provider.dart';
 import '../../settings/application/app_settings_controller.dart';
 import '../application/player_controller.dart';
 
@@ -17,6 +16,7 @@ class PlayerBar extends ConsumerWidget {
     final player = ref.watch(musicPlayerControllerProvider);
     final settings = ref.watch(appSettingsControllerProvider);
     final track = player.currentTrack;
+    final coverImage = coverImageProvider(track?.coverUrl);
 
     ref.listen(
       musicPlayerControllerProvider.select((state) => state.errorMessage),
@@ -71,10 +71,8 @@ class PlayerBar extends ConsumerWidget {
                                 CircleAvatar(
                                   backgroundColor:
                                       colorScheme.secondaryContainer,
-                                  backgroundImage: track?.coverUrl == null
-                                      ? null
-                                      : FileImage(File(track!.coverUrl!)),
-                                  child: track?.coverUrl == null
+                                  backgroundImage: coverImage,
+                                  child: coverImage == null
                                       ? const Icon(Icons.album_rounded)
                                       : null,
                                 ),

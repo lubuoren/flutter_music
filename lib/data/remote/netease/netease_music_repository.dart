@@ -29,6 +29,168 @@ class NeteaseMusicRepository {
     return tracksFromSearchJson(json);
   }
 
+  Future<Track> resolvePlaybackUrl(Track track, {int bitrate = 320000}) async {
+    final existingUrl = track.url?.trim();
+    if (existingUrl != null && existingUrl.isNotEmpty) {
+      return track;
+    }
+
+    final json = await _client.getJson(
+      '/song/url',
+      queryParameters: {'id': track.id, 'br': bitrate},
+    );
+    final playableTrack = trackWithPlaybackUrlFromSongUrlJson(track, json);
+    final playableUrl = playableTrack.url?.trim();
+    if (playableUrl == null || playableUrl.isEmpty) {
+      throw const NeteaseApiException(
+        message: '未获取到歌曲播放地址，可能需要登录或歌曲受版权限制',
+        path: '/song/url',
+      );
+    }
+    return playableTrack;
+  }
+
+  Future<Track> resolvePlayableTrack(
+    Track track, {
+    int bitrate = 320000,
+  }) async {
+    var resolvedTrack = await resolvePlaybackUrl(track, bitrate: bitrate);
+
+    try {
+      resolvedTrack = await trackWithRemoteDetail(resolvedTrack);
+    } on Object {
+      // Playback URL is enough to continue; cover/detail enrichment is best-effort.
+    }
+
+    try {
+      resolvedTrack = await trackWithRemoteLyrics(resolvedTrack);
+    } on Object {
+      // Lyrics should not prevent online playback.
+    }
+
+    return resolvedTrack;
+  }
+
+  Future<Track> trackWithRemoteDetail(Track track) async {
+    final json = await _client.getJson(
+      '/song/detail',
+      queryParameters: {'ids': track.id},
+    );
+    return trackWithDetailFromSongDetailJson(track, json);
+  }
+
+  Future<List<Track>> tracksByIds(
+    List<String> ids, {
+    int chunkSize = 500,
+  }) async {
+    final normalizedIds = ids
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toList();
+    if (normalizedIds.isEmpty) {
+      return const [];
+    }
+
+    final tracks = <Track>[];
+    for (var start = 0; start < normalizedIds.length; start += chunkSize) {
+      final end = start + chunkSize > normalizedIds.length
+          ? normalizedIds.length
+          : start + chunkSize;
+      final chunk = normalizedIds.sublist(start, end);
+      final json = await _client.getJson(
+        '/song/detail',
+        queryParameters: {'ids': chunk.join(',')},
+      );
+      final songsById = _songDetailItems(json);
+      for (final id in chunk) {
+        final song = songsById[id];
+        tracks.add(
+          song == null
+              ? Track(
+                  id: id,
+                  title: '未知歌曲',
+                  artists: const ['未知艺术家'],
+                  type: TrackType.online,
+                  source: 'netease',
+                )
+              : _trackFromSong(song),
+        );
+      }
+    }
+    return tracks;
+  }
+
+  Future<List<Track>> tracksWithRemoteDetails(List<Track> tracks) async {
+    final ids = tracks
+        .map((track) => track.id.trim())
+        .where((id) => id.isNotEmpty)
+        .toList();
+    if (ids.isEmpty) {
+      return tracks;
+    }
+
+    final json = await _client.getJson(
+      '/song/detail',
+      queryParameters: {'ids': ids.join(',')},
+    );
+    return tracksWithDetailFromSongDetailJson(tracks, json);
+  }
+
+  Future<List<Track>> tracksWithPlaybackUrls(
+    List<Track> tracks, {
+    int bitrate = 320000,
+    int chunkSize = 200,
+  }) async {
+    final unresolvedTracks = tracks
+        .where((track) => track.url == null || track.url!.trim().isEmpty)
+        .toList();
+    if (unresolvedTracks.isEmpty) {
+      return tracks;
+    }
+
+    var resolvedTracks = tracks;
+    for (var start = 0; start < unresolvedTracks.length; start += chunkSize) {
+      final end = start + chunkSize > unresolvedTracks.length
+          ? unresolvedTracks.length
+          : start + chunkSize;
+      final chunk = unresolvedTracks.sublist(start, end);
+      final ids = chunk
+          .map((track) => track.id.trim())
+          .where((id) => id.isNotEmpty)
+          .toList();
+      if (ids.isEmpty) {
+        continue;
+      }
+
+      final json = await _client.getJson(
+        '/song/url',
+        queryParameters: {'id': ids.join(','), 'br': bitrate},
+      );
+      resolvedTracks = tracksWithPlaybackUrlsFromSongUrlJson(
+        resolvedTracks,
+        json,
+      );
+    }
+    return resolvedTracks;
+  }
+
+  Future<Track> trackWithRemoteLyrics(Track track) async {
+    final existingLyrics = track.lyrics?.trim();
+    if (existingLyrics != null && existingLyrics.isNotEmpty) {
+      return track;
+    }
+
+    final json = await _client.getJson(
+      '/lyric/new',
+      queryParameters: {'id': track.id},
+    );
+    final lyrics = lyricsFromLyricNewJson(json);
+    if (lyrics == null || lyrics.trim().isEmpty) {
+      return track;
+    }
+    return track.copyWith(lyrics: lyrics);
+  }
+
   static List<Track> tracksFromSearchJson(Map<String, Object?> json) {
     final result = json['result'];
     if (result is! Map) {
@@ -46,6 +208,103 @@ class NeteaseMusicRepository {
         .toList();
   }
 
+  static Track trackWithPlaybackUrlFromSongUrlJson(
+    Track track,
+    Map<String, Object?> json,
+  ) {
+    final item = _songUrlItem(json, track.id);
+    if (item == null) {
+      return track;
+    }
+
+    return _trackWithPlaybackUrlItem(track, item);
+  }
+
+  static List<Track> tracksWithPlaybackUrlsFromSongUrlJson(
+    List<Track> tracks,
+    Map<String, Object?> json,
+  ) {
+    final itemsById = _songUrlItems(json);
+    if (itemsById.isEmpty) {
+      return tracks;
+    }
+
+    return [
+      for (final track in tracks)
+        if (itemsById[track.id] case final item?)
+          _trackWithPlaybackUrlItem(track, item)
+        else
+          track,
+    ];
+  }
+
+  static Track _trackWithPlaybackUrlItem(
+    Track track,
+    Map<String, Object?> item,
+  ) {
+    final url = _stringValue(item['url']);
+    final durationMs = _intValue(item['time']);
+    return track.copyWith(
+      url: url,
+      durationMs: track.durationMs == 0 ? durationMs : null,
+    );
+  }
+
+  static Track trackWithDetailFromSongDetailJson(
+    Track track,
+    Map<String, Object?> json,
+  ) {
+    final song = _songDetailItem(json, track.id);
+    if (song == null) {
+      return track;
+    }
+
+    return _trackWithDetailFromSong(track, song);
+  }
+
+  static List<Track> tracksWithDetailFromSongDetailJson(
+    List<Track> tracks,
+    Map<String, Object?> json,
+  ) {
+    final songsById = _songDetailItems(json);
+    if (songsById.isEmpty) {
+      return tracks;
+    }
+
+    return [
+      for (final track in tracks)
+        if (songsById[track.id] case final song?)
+          _trackWithDetailFromSong(track, song)
+        else
+          track,
+    ];
+  }
+
+  static String? lyricsFromLyricNewJson(Map<String, Object?> json) {
+    final rawYrc = _lyricText(json['yrc']);
+    if (rawYrc != null && rawYrc.isNotEmpty) {
+      return [
+        rawYrc,
+        _lyricText(json['ytlrc']),
+        _lyricText(json['yromalrc']),
+      ].whereType<String>().where((line) => line.trim().isNotEmpty).join('\n');
+    }
+
+    final rawLrc = _lyricText(json['lrc']);
+    if (rawLrc == null || rawLrc.isEmpty) {
+      return null;
+    }
+    return [
+      rawLrc,
+      _lyricText(json['tlyric']),
+      _lyricText(json['romalrc']),
+    ].whereType<String>().where((line) => line.trim().isNotEmpty).join('\n');
+  }
+
+  static Track trackFromSongJson(Map<String, Object?> song) {
+    return _trackFromSong(song);
+  }
+
   static Track _trackFromSong(Map<String, Object?> song) {
     final album = _albumFromSong(song);
     final coverUrl = _stringValue(album?['picUrl'] ?? album?['blurPicUrl']);
@@ -60,6 +319,100 @@ class NeteaseMusicRepository {
       source: 'netease',
       coverUrl: coverUrl,
     );
+  }
+
+  static Track _trackWithDetailFromSong(
+    Track track,
+    Map<String, Object?> song,
+  ) {
+    final detailedTrack = _trackFromSong(song);
+    return track.copyWith(
+      title: detailedTrack.title,
+      artists: detailedTrack.artists,
+      album: detailedTrack.album,
+      durationMs: track.durationMs == 0
+          ? detailedTrack.durationMs
+          : track.durationMs,
+      coverUrl: detailedTrack.coverUrl ?? track.coverUrl,
+    );
+  }
+
+  static Map<String, Object?>? _songUrlItem(
+    Map<String, Object?> json,
+    String trackId,
+  ) {
+    final itemsById = _songUrlItems(json);
+    if (itemsById.containsKey(trackId)) {
+      return itemsById[trackId];
+    }
+
+    final data = json['data'];
+    if (data is Map) {
+      return Map<String, Object?>.from(data);
+    }
+    return data is List && data.whereType<Map>().isNotEmpty
+        ? Map<String, Object?>.from(data.whereType<Map>().first)
+        : null;
+  }
+
+  static Map<String, Map<String, Object?>> _songUrlItems(
+    Map<String, Object?> json,
+  ) {
+    final data = json['data'];
+    final items = switch (data) {
+      Map() => [data],
+      List() => data.whereType<Map>().toList(),
+      _ => const <Map>[],
+    };
+
+    final itemsById = <String, Map<String, Object?>>{};
+    for (final item in items) {
+      final mapped = Map<String, Object?>.from(item);
+      final id = _stringValue(mapped['id']);
+      if (id != null && id.isNotEmpty) {
+        itemsById[id] = mapped;
+      }
+    }
+    return itemsById;
+  }
+
+  static Map<String, Object?>? _songDetailItem(
+    Map<String, Object?> json,
+    String trackId,
+  ) {
+    final songsById = _songDetailItems(json);
+    if (songsById.containsKey(trackId)) {
+      return songsById[trackId];
+    }
+    final songs = json['songs'];
+    Map<String, Object?>? firstItem;
+    if (songs is! List) {
+      return null;
+    }
+    for (final item in songs.whereType<Map>()) {
+      final mapped = Map<String, Object?>.from(item);
+      firstItem ??= mapped;
+    }
+    return firstItem;
+  }
+
+  static Map<String, Map<String, Object?>> _songDetailItems(
+    Map<String, Object?> json,
+  ) {
+    final songs = json['songs'];
+    if (songs is! List) {
+      return const {};
+    }
+
+    final songsById = <String, Map<String, Object?>>{};
+    for (final item in songs.whereType<Map>()) {
+      final mapped = Map<String, Object?>.from(item);
+      final id = _stringValue(mapped['id']);
+      if (id != null && id.isNotEmpty) {
+        songsById[id] = mapped;
+      }
+    }
+    return songsById;
   }
 
   static Map<String, Object?>? _albumFromSong(Map<String, Object?> song) {
@@ -83,6 +436,13 @@ class NeteaseMusicRepository {
         .where((name) => name.isNotEmpty)
         .toList();
     return names.isEmpty ? const ['未知艺术家'] : names;
+  }
+
+  static String? _lyricText(Object? value) {
+    if (value is! Map) {
+      return null;
+    }
+    return _stringValue(value['lyric']);
   }
 
   static String? _stringValue(Object? value) {
