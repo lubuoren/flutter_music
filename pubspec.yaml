@@ -1,0 +1,60 @@
+name: flutter_music
+description: "VutronMusic Flutter MD3/MD3E 重构版"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  m3e_design: ^0.2.1
+  m3e_collection: ^0.3.7
+  material_new_shapes: ^1.0.0
+  expressive_refresh: ^0.1.2
+
+  # 路由与状态管理
+  go_router: ^14.8.1
+  flutter_riverpod: ^2.6.1
+
+  # 音频播放与后台控制
+  just_audio: ^0.9.46
+  audio_service: ^0.18.17
+  audio_video_progress_bar: ^2.0.3
+
+  # 本地音乐、文件、权限与元数据
+  file_picker: ^8.1.7
+  permission_handler: ^11.4.0
+  path_provider: ^2.1.5
+
+  # 数据库与持久化
+  shared_preferences: ^2.5.3
+  sqflite: ^2.4.1
+  sqflite_common_ffi: ^2.3.3+2
+
+  # UI、网络与桌面增强
+  cached_network_image: ^3.4.1
+  flutter_svg: ^2.0.17
+  dio: ^5.8.0
+  window_manager: ^0.4.3
+  audio_metadata_reader: ^1.6.0
+  crypto: ^3.0.7
+  path: ^1.9.1
+  just_audio_media_kit: ^2.1.0
+  media_kit_libs_linux: ^1.2.1
+  media_kit_libs_windows_audio: ^1.0.9
+  # 注：tray_manager 留待 Phase 7 桌面增强阶段接入。
+  # 其 Linux 原生实现使用了已弃用的 app_indicator_new，在 -Werror 下会导致
+  # Linux 构建失败，需在接入时配合插件升级或本地 patch 解决。
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
