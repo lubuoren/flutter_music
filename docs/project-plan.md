@@ -34,7 +34,7 @@ fvm flutter test
 | Phase 1 | MD3/MD3E 设计系统与播放器壳 | ✅ |
 | Phase 2 | 本地音乐 MVP | ✅ MVP |
 | Phase 3 | MD3/MD3E 完整 UI | ✅ |
-| Phase 4 | 网易云在线能力迁移（登录、搜索、歌单、专辑、艺术家、评论、MV、每日推荐等） | ⬜ |
+| Phase 4 | 网易云在线能力迁移（登录、搜索、歌单、专辑、艺术家、评论、MV、每日推荐等） | 🟡 |
 | Phase 5 | Navidrome / Jellyfin / Emby 流媒体 | ⬜ |
 | Phase 6 | 高级音频与歌词 | ⬜ |
 | Phase 7 | 桌面平台增强 | ⬜ |
@@ -49,7 +49,7 @@ fvm flutter test
 - ✅ 将 `shared_preferences` 媒体库快照迁移到 sqflite 数据库。
 - ✅ 添加数据库迁移脚本目录与首版 schema。
 - ✅ 实现本地歌单创建、编辑、删除、歌曲增删。
-- ✅ 将 LRC 解析接入滚动歌词视图。
+- ✅ 将 LRC 解析接入滚动歌词视图，并按原 VutronMusic Classic 主窗口样式对齐。
 - 🟡 逐字歌词/LDDC 展示（模型已就绪，解析待接入）。
 - 🟡 为本地扫描、播放状态机、喜欢歌曲和最近播放补单元测试（部分已补）。
 
@@ -57,10 +57,22 @@ fvm flutter test
 
 Phase 3 UI 已完成主要页面。剩余工作：
 
-- LRC 滚动歌词：解析 LRC 格式并接入播放页同步滚动和高亮。
-- 本地歌单：创建、编辑、删除、歌曲增删。
-- 数据库迁移：shared_preferences → sqflite/drift。
+- 逐字歌词/LDDC：解析逐字时间片段并实现逐字高亮动画。
 - 响应式已支持：桌面宽屏优先（NavigationRail），移动端底部导航和紧凑播放器。
+
+## Phase 4 方向
+
+网易云能力使用
+[NeteaseCloudMusicApiEnhanced/api-enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced)
+作为独立 HTTP API 服务，Flutter 端通过 `dio` 访问。客户端不内置 Node.js 运行时。
+
+当前已完成：
+
+- `NeteaseApiClient` 通用请求与错误包装；
+- 设置页可配置 API Base URL；
+- `/search` 歌曲搜索与统一 `Track` 映射。
+
+后续按登录态、播放 URL、内容详情、推荐与互动能力的顺序推进。
 
 ## 技术决策
 
@@ -73,7 +85,7 @@ Phase 3 UI 已完成主要页面。剩余工作：
 | 元数据 | audio_metadata_reader | 读取标签、时长、封面、歌词 |
 | 当前持久化 | shared_preferences | Phase 2 临时媒体库快照 |
 | 目标数据库 | sqflite/drift | Phase 2 后续迁移 |
-| 网络 | dio | Phase 4 网易云 Repository |
+| 网络 | dio + api-enhanced HTTP 服务 | Phase 4 网易云 Repository |
 | 桌面增强 | window_manager，tray_manager 待定 | tray_manager 留到 Phase 7 评估 Linux 构建问题 |
 
 ## 迁移映射

@@ -16,6 +16,7 @@ class AppSettingsState {
     this.clickPlayerBarToLyrics = false,
     this.showChorus = true,
     this.fadeDuration = 0.2,
+    this.neteaseApiBaseUrl = 'http://127.0.0.1:3000',
   });
 
   final AppThemeMode themeMode;
@@ -23,6 +24,7 @@ class AppSettingsState {
   final bool clickPlayerBarToLyrics;
   final bool showChorus;
   final double fadeDuration;
+  final String neteaseApiBaseUrl;
 
   ThemeMode get materialThemeMode {
     return switch (themeMode) {
@@ -38,6 +40,7 @@ class AppSettingsState {
     bool? clickPlayerBarToLyrics,
     bool? showChorus,
     double? fadeDuration,
+    String? neteaseApiBaseUrl,
   }) {
     return AppSettingsState(
       themeMode: themeMode ?? this.themeMode,
@@ -46,6 +49,7 @@ class AppSettingsState {
           clickPlayerBarToLyrics ?? this.clickPlayerBarToLyrics,
       showChorus: showChorus ?? this.showChorus,
       fadeDuration: fadeDuration ?? this.fadeDuration,
+      neteaseApiBaseUrl: neteaseApiBaseUrl ?? this.neteaseApiBaseUrl,
     );
   }
 }
@@ -59,6 +63,7 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
       'settings.click_player_bar_to_lyrics.v1';
   static const _showChorusKey = 'settings.show_chorus.v1';
   static const _fadeDurationKey = 'settings.fade_duration.v1';
+  static const _neteaseApiBaseUrlKey = 'settings.netease_api_base_url.v1';
 
   Future<void> load() async {
     final preferences = await SharedPreferences.getInstance();
@@ -69,6 +74,9 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
           preferences.getBool(_clickPlayerBarToLyricsKey) ?? false,
       showChorus: preferences.getBool(_showChorusKey) ?? true,
       fadeDuration: preferences.getDouble(_fadeDurationKey) ?? 0.2,
+      neteaseApiBaseUrl:
+          preferences.getString(_neteaseApiBaseUrlKey) ??
+          const AppSettingsState().neteaseApiBaseUrl,
     );
   }
 
@@ -100,6 +108,15 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
     state = state.copyWith(fadeDuration: value);
     final preferences = await SharedPreferences.getInstance();
     await preferences.setDouble(_fadeDurationKey, value);
+  }
+
+  Future<void> setNeteaseApiBaseUrl(String value) async {
+    final normalizedValue = value.trim().isEmpty
+        ? const AppSettingsState().neteaseApiBaseUrl
+        : value.trim();
+    state = state.copyWith(neteaseApiBaseUrl: normalizedValue);
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_neteaseApiBaseUrlKey, normalizedValue);
   }
 
   AppThemeMode _themeModeFromName(String? value) {

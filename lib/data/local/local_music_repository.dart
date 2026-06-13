@@ -170,6 +170,28 @@ class LocalMusicController extends StateNotifier<LocalMusicState> {
     state = state.copyWith(tracks: tracks);
   }
 
+  Future<Track?> setLyricOffset(Track track, double offset) async {
+    if (track.type != TrackType.local) {
+      return null;
+    }
+
+    final updatedTrack = track.copyWith(offset: offset);
+    final tracks = [
+      for (final item in state.tracks)
+        if (item.id == track.id) updatedTrack else item,
+    ];
+    await _repository.saveLibrary(
+      LocalMusicSnapshot(
+        tracks: tracks,
+        scanDirectories: state.scanDirectories,
+        lastScannedAt: state.lastScannedAt,
+      ),
+    );
+    await AppDatabase.instance.updateTrack(updatedTrack);
+    state = state.copyWith(tracks: tracks);
+    return updatedTrack;
+  }
+
   List<Track> _mergeTracks(List<Track> tracks) {
     final byPath = <String, Track>{};
     for (final track in tracks) {
@@ -218,25 +240,28 @@ class LocalMusicRepository {
     }
 
     final tracks = await AppDatabase.instance.loadAllTracks();
-    final directories =
-        await AppDatabase.instance.getAppData('local_music.directories.v1');
-    final scannedAtStr =
-        await AppDatabase.instance.getAppData('local_music.last_scanned_at.v1');
+    final directories = await AppDatabase.instance.getAppData(
+      'local_music.directories.v1',
+    );
+    final scannedAtStr = await AppDatabase.instance.getAppData(
+      'local_music.last_scanned_at.v1',
+    );
 
     return LocalMusicSnapshot(
       tracks: tracks,
       scanDirectories: directories?.isNotEmpty == true
           ? (jsonDecode(directories!) as List).cast<String>()
           : const [],
-      lastScannedAt: scannedAtStr == null ? null : DateTime.tryParse(scannedAtStr),
+      lastScannedAt: scannedAtStr == null
+          ? null
+          : DateTime.tryParse(scannedAtStr),
     );
   }
 
   Future<LocalMusicSnapshot?> _loadFromSharedPreferences() async {
     final preferences = await SharedPreferences.getInstance();
     final trackPayload = preferences.getString(_tracksKey);
-    final directories =
-        preferences.getStringList(_directoriesKey) ?? const [];
+    final directories = preferences.getStringList(_directoriesKey) ?? const [];
     final scannedAt = preferences.getString(_lastScannedAtKey);
 
     final tracks = <Track>[];
@@ -275,21 +300,7 @@ class LocalMusicRepository {
       );
     }
 
-    // Also keep shared_preferences in sync (for backward compat, can remove later)
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(
-      _tracksKey,
-      jsonEncode(snapshot.tracks.map((track) => track.toJson()).toList()),
-    );
-    await preferences.setStringList(_directoriesKey, snapshot.scanDirectories);
-    if (snapshot.lastScannedAt == null) {
-      await preferences.remove(_lastScannedAtKey);
-    } else {
-      await preferences.setString(
-        _lastScannedAtKey,
-        snapshot.lastScannedAt!.toIso8601String(),
-      );
-    }
+    // shared_preferences is now read only for one-time Phase 2 migration.
   }
 
   Future<void> _saveDirectoriesToDatabase(List<String> directories) async {

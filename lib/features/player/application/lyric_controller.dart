@@ -5,11 +5,7 @@ import '../../../data/models/lyric_line.dart';
 import 'player_controller.dart';
 
 class LyricState {
-  const LyricState({
-    this.lines = const [],
-    this.currentIndex,
-    this.trackId,
-  });
+  const LyricState({this.lines = const [], this.currentIndex, this.trackId});
 
   final List<LyricLine> lines;
   final int? currentIndex;
@@ -26,8 +22,9 @@ class LyricState {
   }) {
     return LyricState(
       lines: lines ?? this.lines,
-      currentIndex:
-          clearCurrentIndex ? null : currentIndex ?? this.currentIndex,
+      currentIndex: clearCurrentIndex
+          ? null
+          : currentIndex ?? this.currentIndex,
       trackId: clearTrackId ? null : trackId ?? this.trackId,
     );
   }
@@ -80,7 +77,11 @@ class LyricController extends StateNotifier<LyricState> {
       return;
     }
 
-    final positionMs = position.inMilliseconds;
+    final offsetMs =
+        ((_ref.read(musicPlayerControllerProvider).currentTrack?.offset ?? 0) *
+                1000)
+            .round();
+    final positionMs = position.inMilliseconds + offsetMs;
     // 用二分查找找到当前行
     final newIndex = _binarySearch(lines, positionMs);
     if (newIndex != state.currentIndex) {

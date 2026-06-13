@@ -53,9 +53,9 @@
 
 | 功能 | 原项目 | Flutter 目标 | 状态 |
 |---|---|---|---|
-| 普通 LRC 解析与滚动 | components/LyricPage.vue | features/lyric | 🟡 |
+| 普通 LRC 解析与滚动 | components/LyricPage.vue | features/lyric | ✅ |
 | 逐字歌词（LDDC） | LyricLine.vue, types/music | data/models/lyric_line.dart | 🟡 |
-| 翻译歌词 | store/player.ts | data/models/lyric_line.dart | 🟡 |
+| 翻译歌词 | store/player.ts | data/models/lyric_line.dart | ✅ |
 | 歌词偏移 | player.ts lyricOffset | features/player | ⬜ |
 | 桌面歌词/OSD | views/OSDLyric.vue, store/osdLyric.ts | features/lyric + window_manager | ⬜ |
 
@@ -67,7 +67,7 @@
 | ID3 标签读取 | music-metadata, taglib-wasm | data/local | ✅ |
 | 内嵌封面 | main/workers/writeCover.ts | data/local | ✅ |
 | 内嵌/外挂 LRC | store/localMusic.ts | data/local | ✅ |
-| LRC 解析与滚动展示 | components/LyricPage.vue | features/lyric + player_page.dart | ⬜ |
+| LRC 解析与滚动展示 | components/LyricPage.vue | features/lyric + player_page.dart | ✅ |
 | 在线信息匹配 | api/other searchMatch | data/remote/netease | ⬜ |
 | 本地歌单 | store/localMusic.ts | features/playlist | ✅ |
 

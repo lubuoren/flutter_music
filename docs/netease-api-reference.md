@@ -3,11 +3,26 @@
 本文件整理 VutronMusic `src/renderer/api/*.ts` 中调用的网易云接口，作为 Flutter 端
 `lib/data/remote/netease/` Repository 的契约清单。
 
-当前状态：Phase 4 尚未开始，Flutter 端暂无 `data/remote/netease` 实现。本文件只定义迁移目标，不表示接口已经接入。
+当前状态：Phase 4 已开始。Flutter 端已建立 `data/remote/netease` 接入层，并完成歌曲搜索的首个闭环；其余接口仍按本文件逐步迁移。
+
+## API 服务选型
+
+网易云相关能力准备使用
+[NeteaseCloudMusicApiEnhanced/api-enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced)。
+该项目提供 Node.js 网易云音乐 HTTP API 服务，Flutter 客户端通过 `dio` 访问，不在应用内嵌 Node.js 运行时。
+
+接入约定：
+
+- 开发默认 Base URL：`http://127.0.0.1:3000`。
+- Base URL 可在应用设置页修改并持久化。
+- 桌面端可访问本机服务；Android 模拟器访问宿主机时通常需要改为 `http://10.0.2.2:3000`。
+- 真机需填写局域网或已部署的 HTTPS 地址，生产环境不依赖公开演示服务。
+- `api-enhanced` 作为独立服务运行或部署，Flutter 仓库不 vendoring 其源码。
+- 上游接口可能随网易云策略变化，所有响应解析集中在 Repository 层，页面不直接依赖原始 JSON。
 
 通用约定：
 
-- 原项目经由本地代理 `/netease` 前缀转发。
+- 原项目经由本地代理 `/netease` 前缀转发；Flutter 新实现直接请求配置的 `api-enhanced` Base URL。
 - Flutter 端目标是封装 `NeteaseApiClient`，底层使用 `dio`。
 - Cookie、代理参数 `proxy`、真实 IP 参数 `realIP` 来自设置模块。
 - 响应 `code == 301` 且 message 为未登录时，应清理登录态并提示重新登录。
@@ -23,6 +38,18 @@ lib/data/remote/netease/
   netease_playlist_repository.dart
   netease_comment_repository.dart
 ```
+
+当前已实现：
+
+- `NeteaseApiClient`：Base URL、超时、Cookie/代理/realIP 通用参数、错误包装。
+- `NeteaseMusicRepository.searchTracks`：调用 `/search` 并映射统一 `Track`。
+
+下一步顺序：
+
+1. 二维码登录、Cookie 持久化、登录态校验；
+2. `/song/url` 或对应增强接口解析在线歌曲播放 URL；
+3. 歌单、专辑、艺术家详情；
+4. 每日推荐、私人 FM、评论和 MV。
 
 ## auth.ts 登录与账号
 

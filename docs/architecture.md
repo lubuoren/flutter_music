@@ -139,7 +139,7 @@ Flutter 新增：
 | Electron 能力 | Flutter 方案 |
 |---|---|
 | main 进程 IPC | Riverpod provider + 平台通道 |
-| Fastify 本地服务 + NeteaseCloudMusicApi | Dart HTTP client（dio）+ Repository |
+| Fastify 本地服务 + NeteaseCloudMusicApi | Dart HTTP client（dio）+ Repository，连接独立部署的 api-enhanced |
 | better-sqlite3 | sqflite/drift |
 | electron-store | shared_preferences；后续迁移数据库 |
 | atom:// 自定义协议 | 文件路径、字节流、HTTP(S) URL |

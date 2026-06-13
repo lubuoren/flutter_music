@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../settings/application/app_settings_controller.dart';
 import '../application/player_controller.dart';
 
 class PlayerBar extends ConsumerWidget {
@@ -14,6 +15,7 @@ class PlayerBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final player = ref.watch(musicPlayerControllerProvider);
+    final settings = ref.watch(appSettingsControllerProvider);
     final track = player.currentTrack;
 
     ref.listen(
@@ -55,7 +57,9 @@ class PlayerBar extends ConsumerWidget {
                     children: [
                       Expanded(
                         child: InkWell(
-                          onTap: () => context.push('/player'),
+                          onTap: settings.clickPlayerBarToLyrics
+                              ? () => context.push('/player')
+                              : null,
                           borderRadius: BorderRadius.circular(16),
                           child: Padding(
                             padding: EdgeInsets.only(

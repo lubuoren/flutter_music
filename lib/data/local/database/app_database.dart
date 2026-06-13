@@ -37,11 +37,7 @@ class AppDatabase {
     await dbDir.create(recursive: true);
     final dbPath = p.join(dbDir.path, 'vutronmusic.db');
 
-    final db = await openDatabase(
-      dbPath,
-      version: 1,
-      onCreate: _onCreate,
-    );
+    final db = await openDatabase(dbPath, version: 1, onCreate: _onCreate);
 
     return db;
   }
@@ -126,43 +122,41 @@ CREATE TABLE app_data (
 
   Future<void> insertOrUpdateTrack(Track track) async {
     final db = await database;
-    await db.insert(
-      'tracks',
-      {
-        'id': track.id,
-        'type': track.type.name,
-        'source': track.source,
-        'file_path': track.filePath,
-        'json': jsonEncode(track.toJson()),
-        'updated_at': DateTime.now().toIso8601String(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('tracks', {
+      'id': track.id,
+      'type': track.type.name,
+      'source': track.source,
+      'file_path': track.filePath,
+      'json': jsonEncode(track.toJson()),
+      'updated_at': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> insertOrUpdateTracks(List<Track> tracks) async {
     final db = await database;
     final batch = db.batch();
     for (final track in tracks) {
-      batch.insert(
-        'tracks',
-        {
-          'id': track.id,
-          'type': track.type.name,
-          'source': track.source,
-          'file_path': track.filePath,
-          'json': jsonEncode(track.toJson()),
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      batch.insert('tracks', {
+        'id': track.id,
+        'type': track.type.name,
+        'source': track.source,
+        'file_path': track.filePath,
+        'json': jsonEncode(track.toJson()),
+        'updated_at': DateTime.now().toIso8601String(),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await batch.commit(noResult: true);
   }
 
+  Future<void> updateTrack(Track track) {
+    return insertOrUpdateTrack(track);
+  }
+
   Future<void> deleteTracksByDirectory(String directory) async {
     final db = await database;
-    final normalized = directory.replaceAll('\\', '/').replaceAll(RegExp(r'/+$'), '');
+    final normalized = directory
+        .replaceAll('\\', '/')
+        .replaceAll(RegExp(r'/+$'), '');
     await db.delete(
       'tracks',
       where: "file_path LIKE ?",
@@ -175,15 +169,11 @@ CREATE TABLE app_data (
   Future<void> setLiked(String trackId, String source, bool liked) async {
     final db = await database;
     if (liked) {
-      await db.insert(
-        'liked_tracks',
-        {
-          'track_id': trackId,
-          'source': source,
-          'created_at': DateTime.now().toIso8601String(),
-        },
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
+      await db.insert('liked_tracks', {
+        'track_id': trackId,
+        'source': source,
+        'created_at': DateTime.now().toIso8601String(),
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
     } else {
       await db.delete(
         'liked_tracks',
@@ -205,7 +195,10 @@ CREATE TABLE app_data (
       json['isLiked'] = liked;
       await db.update(
         'tracks',
-        {'json': jsonEncode(json), 'updated_at': DateTime.now().toIso8601String()},
+        {
+          'json': jsonEncode(json),
+          'updated_at': DateTime.now().toIso8601String(),
+        },
         where: 'id = ?',
         whereArgs: [trackId],
       );
@@ -214,7 +207,11 @@ CREATE TABLE app_data (
 
   // ━━━ Play History ━━━
 
-  Future<void> recordPlay(String trackId, {int? durationMs, String? source}) async {
+  Future<void> recordPlay(
+    String trackId, {
+    int? durationMs,
+    String? source,
+  }) async {
     final db = await database;
     await db.insert('play_history', {
       'track_id': trackId,
@@ -256,16 +253,12 @@ CREATE TABLE app_data (
     int position,
   ) async {
     final db = await database;
-    await db.insert(
-      'playlist_tracks',
-      {
-        'playlist_id': playlistId,
-        'track_id': trackId,
-        'position': position,
-        'added_at': DateTime.now().toIso8601String(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('playlist_tracks', {
+      'playlist_id': playlistId,
+      'track_id': trackId,
+      'position': position,
+      'added_at': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<Map<String, Object?>>> loadPlaylistTracks(
@@ -280,10 +273,7 @@ CREATE TABLE app_data (
     );
   }
 
-  Future<void> deletePlaylistTrack(
-    String playlistId,
-    String trackId,
-  ) async {
+  Future<void> deletePlaylistTrack(String playlistId, String trackId) async {
     final db = await database;
     await db.delete(
       'playlist_tracks',
@@ -296,11 +286,10 @@ CREATE TABLE app_data (
 
   Future<void> setAppData(String id, String value) async {
     final db = await database;
-    await db.insert(
-      'app_data',
-      {'id': id, 'value': value},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('app_data', {
+      'id': id,
+      'value': value,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<String?> getAppData(String id) async {

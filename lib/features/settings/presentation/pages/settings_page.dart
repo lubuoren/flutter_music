@@ -96,6 +96,23 @@ class SettingsPage extends ConsumerWidget {
                   ],
                 ),
                 _SettingsSection(
+                  icon: Icons.cloud_rounded,
+                  title: '在线音乐',
+                  children: [
+                    _NeteaseApiBaseUrlTile(
+                      value: settings.neteaseApiBaseUrl,
+                      onSubmitted: settingsController.setNeteaseApiBaseUrl,
+                    ),
+                    const ListTile(
+                      leading: Icon(Icons.info_outline_rounded),
+                      title: Text('网易云 API 服务'),
+                      subtitle: Text(
+                        'Phase 4 使用 api-enhanced 自建 HTTP 服务，Flutter 只保存服务地址并通过 dio 调用',
+                      ),
+                    ),
+                  ],
+                ),
+                _SettingsSection(
                   icon: Icons.play_circle_rounded,
                   title: '播放',
                   children: [
@@ -103,7 +120,7 @@ class SettingsPage extends ConsumerWidget {
                       value: settings.clickPlayerBarToLyrics,
                       secondary: const Icon(Icons.lyrics_rounded),
                       title: const Text('点击播放栏打开歌词'),
-                      subtitle: const Text('后续接入滚动歌词页后生效'),
+                      subtitle: const Text('开启后点击播放栏曲目信息进入正在播放页'),
                       onChanged: settingsController.setClickPlayerBarToLyrics,
                     ),
                     SwitchListTile(
@@ -130,29 +147,19 @@ class SettingsPage extends ConsumerWidget {
                     ),
                   ],
                 ),
-                _SettingsSection(
+                const _SettingsSection(
                   icon: Icons.tune_rounded,
-                  title: '待接入能力',
-                  children: const [
-                    _RoadmapTile(
-                      icon: Icons.queue_music_rounded,
-                      title: '本地歌单',
-                      subtitle: '创建、编辑、删除歌单，以及向歌单添加/移除歌曲',
-                    ),
-                    _RoadmapTile(
-                      icon: Icons.lyrics_rounded,
-                      title: '滚动歌词与逐字歌词',
-                      subtitle: '解析 LRC/LDDC，播放页同步滚动和逐字高亮',
-                    ),
+                  title: '后续阶段',
+                  children: [
                     _RoadmapTile(
                       icon: Icons.equalizer_rounded,
                       title: '音效设置',
-                      subtitle: '均衡器、卷积混响、变调、变速',
+                      subtitle: 'Phase 6：均衡器、卷积混响、变调、变速',
                     ),
                     _RoadmapTile(
                       icon: Icons.desktop_windows_rounded,
                       title: '桌面增强',
-                      subtitle: '托盘、MPRIS、全局快捷键、桌面歌词',
+                      subtitle: 'Phase 7：托盘、MPRIS、全局快捷键、桌面歌词',
                     ),
                   ],
                 ),
@@ -160,6 +167,70 @@ class SettingsPage extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NeteaseApiBaseUrlTile extends StatefulWidget {
+  const _NeteaseApiBaseUrlTile({
+    required this.value,
+    required this.onSubmitted,
+  });
+
+  final String value;
+  final ValueChanged<String> onSubmitted;
+
+  @override
+  State<_NeteaseApiBaseUrlTile> createState() => _NeteaseApiBaseUrlTileState();
+}
+
+class _NeteaseApiBaseUrlTileState extends State<_NeteaseApiBaseUrlTile> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(covariant _NeteaseApiBaseUrlTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value && _controller.text != widget.value) {
+      _controller.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.link_rounded),
+      title: const Text('Netease API Base URL'),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: TextField(
+          controller: _controller,
+          decoration: const InputDecoration(
+            hintText: 'http://127.0.0.1:3000',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+          keyboardType: TextInputType.url,
+          textInputAction: TextInputAction.done,
+          onSubmitted: widget.onSubmitted,
+        ),
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.save_rounded),
+        tooltip: '保存 API 地址',
+        onPressed: () => widget.onSubmitted(_controller.text),
       ),
     );
   }

@@ -76,5 +76,30 @@ void main() {
       expect(lines.length, 1);
       expect(lines[0].start, 83456);
     });
+
+    test('解析网易云 YRC 逐字歌词', () {
+      const yrc = '[1000,2000](1000,500,0)你(1500,500,0)好';
+      final lines = parseLrc(yrc);
+
+      expect(lines, hasLength(1));
+      expect(lines.single.start, 1000);
+      expect(lines.single.end, 3000);
+      expect(lines.single.text, '你好');
+      expect(lines.single.isWordByWord, isTrue);
+      expect(lines.single.words.first.text, '你');
+      expect(lines.single.words.first.start, 1000);
+      expect(lines.single.words.first.end, 1500);
+    });
+
+    test('解析 WRC 逐字歌词', () {
+      const wrc = '[00:01.000]你[00:01.500]好[00:02.000]';
+      final lines = parseLrc(wrc);
+
+      expect(lines, hasLength(1));
+      expect(lines.single.start, 1000);
+      expect(lines.single.end, 2000);
+      expect(lines.single.text, '你好');
+      expect(lines.single.words.map((word) => word.text), ['你', '好']);
+    });
   });
 }

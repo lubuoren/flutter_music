@@ -47,7 +47,7 @@ class PlayerPage extends ConsumerWidget {
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= 900;
           final cover = _AlbumCover(track: track);
-          final detail = _TrackDetail(track: track);
+          final detail = _TrackDetail(track: track, isWide: isWide);
 
           return Padding(
             padding: const EdgeInsets.all(24),
@@ -61,7 +61,7 @@ class PlayerPage extends ConsumerWidget {
                   )
                 : Column(
                     children: [
-                      Expanded(flex: 3, child: cover),
+                      Expanded(flex: 2, child: cover),
                       const SizedBox(height: 16),
                       Expanded(flex: 2, child: detail),
                     ],
@@ -115,14 +115,16 @@ class _AlbumCover extends StatelessWidget {
 }
 
 class _TrackDetail extends ConsumerWidget {
-  const _TrackDetail({required this.track});
+  const _TrackDetail({required this.track, required this.isWide});
 
   final Track? track;
+  final bool isWide;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final track = this.track;
     final lyricState = ref.watch(lyricControllerProvider);
+    final player = ref.watch(musicPlayerControllerProvider);
 
     if (track == null) {
       return Center(
@@ -153,26 +155,91 @@ class _TrackDetail extends ConsumerWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
+        _LyricOffsetControls(track: track),
+        const SizedBox(height: 12),
         Expanded(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(7),
+          child: Align(
+            alignment: isWide ? Alignment.centerRight : Alignment.center,
+            child: FractionallySizedBox(
+              widthFactor: isWide ? 0.9 : 1,
+              heightFactor: 1,
               child: LyricView(
                 lines: lyricState.lines,
                 currentIndex: lyricState.currentIndex,
+                position:
+                    player.position +
+                    Duration(milliseconds: (track.offset * 1000).round()),
+                textAlign: isWide ? TextAlign.left : TextAlign.center,
+                onLineTap: (line) {
+                  ref
+                      .read(musicPlayerControllerProvider.notifier)
+                      .seek(Duration(milliseconds: line.start));
+                },
               ),
             ),
           ),
         ),
       ],
     );
+  }
+}
+
+class _LyricOffsetControls extends ConsumerWidget {
+  const _LyricOffsetControls({required this.track});
+
+  final Track track;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Wrap(
+        spacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.replay_5_rounded),
+            tooltip: '歌词提前 0.5 秒',
+            onPressed: () => _adjustOffset(ref, -0.5),
+          ),
+          ActionChip(
+            avatar: const Icon(Icons.restore_rounded, size: 18),
+            label: Text(_offsetLabel(track.offset)),
+            onPressed: () => _setOffset(ref, 0),
+          ),
+          IconButton(
+            icon: const Icon(Icons.forward_5_rounded),
+            tooltip: '歌词后退 0.5 秒',
+            onPressed: () => _adjustOffset(ref, 0.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _adjustOffset(WidgetRef ref, double delta) {
+    return _setOffset(ref, track.offset + delta);
+  }
+
+  Future<void> _setOffset(WidgetRef ref, double value) async {
+    final updatedTrack = await ref
+        .read(localMusicControllerProvider.notifier)
+        .setLyricOffset(track, double.parse(value.toStringAsFixed(1)));
+    if (updatedTrack == null) {
+      return;
+    }
+    ref
+        .read(musicPlayerControllerProvider.notifier)
+        .updateTrackInQueue(updatedTrack);
+  }
+
+  String _offsetLabel(double offset) {
+    if (offset == 0) {
+      return '未调整';
+    }
+    final prefix = offset > 0 ? '延后' : '提前';
+    return '$prefix${offset.abs().toStringAsFixed(1)}s';
   }
 }
 

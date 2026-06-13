@@ -93,5 +93,14 @@ void main() {
       expect(updated.queue.length, 2);
       expect(updated.currentIndex, 0);
     });
+
+    test('currentTrack reflects updated queue metadata', () {
+      final track = Track(id: '1', title: 'A', artists: ['X']);
+      final state = MusicPlayerState(queue: [track], currentIndex: 0);
+      final updatedTrack = track.copyWith(offset: 0.5);
+      final updated = state.copyWith(queue: [updatedTrack]);
+
+      expect(updated.currentTrack?.offset, 0.5);
+    });
   });
 }

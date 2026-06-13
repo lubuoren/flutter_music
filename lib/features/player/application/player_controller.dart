@@ -204,6 +204,16 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
     }
   }
 
+  void updateTrackInQueue(Track track) {
+    final index = state.queue.indexWhere((item) => item.id == track.id);
+    if (index < 0) {
+      return;
+    }
+    final queue = [...state.queue];
+    queue[index] = track;
+    state = state.copyWith(queue: queue);
+  }
+
   void _onPlayerStateChanged(PlayerState playerState) {
     state = state.copyWith(
       isPlaying: playerState.playing,
