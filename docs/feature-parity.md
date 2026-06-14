@@ -123,5 +123,7 @@
 | 本地数据库 | main/db.ts, public/migrations/* | data/local/database | ✅ |
 | 设置持久化 | pinia-plugin-persistedstate | shared_preferences | ✅ |
 | 数据库迁移 | public/migrations/*.sql | data/local/database（onCreate + onUpgrade 版本化机制） | ✅ |
+| 正在播放队列恢复 | store/player.ts 持久化 | features/player（now_playing.v1） | ✅ |
+| 在线歌单缓存 | — | data/remote/netease（netease.collection.*） | ✅ |
 
 数据库表结构与迁移脚本说明见 docs/data-model.md。

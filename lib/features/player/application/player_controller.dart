@@ -12,6 +12,7 @@ import '../../../data/remote/netease/netease_music_repository.dart';
 import '../../login/application/netease_auth_controller.dart';
 import '../../settings/application/app_settings_controller.dart';
 import 'lyric_offset_repository.dart';
+import 'now_playing_repository.dart';
 import 'player_state.dart';
 
 final musicAudioHandlerProvider = Provider<MusicAudioHandler>((ref) {
@@ -34,6 +35,7 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
       _player.positionStream.listen((position) {
         state = state.copyWith(position: position);
         _maybeCountPlay(position);
+        _maybePersistPosition(position);
       }),
       _player.bufferedPositionStream.listen((position) {
         state = state.copyWith(bufferedPosition: position);
@@ -51,6 +53,8 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
           clearCurrentIndex: index == null,
         );
         _loadLyricsForCurrentTrack();
+        unawaited(_ensureCurrentResolved());
+        _scheduleSave();
       }),
       _player.shuffleModeEnabledStream.listen((enabled) {
         state = state.copyWith(shuffleEnabled: enabled);
@@ -59,6 +63,7 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
         state = state.copyWith(loopMode: mode);
       }),
     ]);
+    unawaited(_restoreNowPlaying());
   }
 
   final Ref _ref;
@@ -69,6 +74,14 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
 
   /// 当前曲目是否已计入播放次数；曲目切换或重新播放队列时重置。
   bool _playCounted = false;
+
+  /// 队列「代」号；每次设置新队列自增，用于让旧队列的后台解析任务尽早退出。
+  int _queueGeneration = 0;
+
+  /// 「正在播放」队列的持久化；用于重开恢复上次队列与进度。
+  final NowPlayingRepository _nowPlaying = NowPlayingRepository();
+  Timer? _saveTimer;
+  int _lastSavedPositionSec = -1;
 
   /// 计入一次播放所需的最短收听时长（与「曲目时长一半」取较小值）。
   static const Duration _minPlayThreshold = Duration(seconds: 30);
@@ -90,12 +103,156 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
         clearError: true,
       );
       _playCounted = false;
+      _queueGeneration++;
       await _setQueue(playableTracks, startIndex: index);
       _loadLyricsForCurrentTrack();
       await _handler.play();
     } on Object catch (error) {
       state = state.copyWith(errorMessage: '播放失败：$error');
     }
+  }
+
+  /// 在线队列「秒播 + 后台解析」：先只解析起始曲并立即播放，其余曲目以静音
+  /// 占位入队，随后在后台逐个解析并替换为真实音源（不走 `_canPlay` 过滤）。
+  Future<void> playQueueLazy(List<Track> tracks, {int startIndex = 0}) async {
+    if (tracks.isEmpty) {
+      state = state.copyWith(errorMessage: '歌单中没有歌曲');
+      return;
+    }
+    final index = _clampIndex(startIndex, tracks.length);
+    final generation = ++_queueGeneration;
+    _playCounted = false;
+    try {
+      final resolvedStart = await _resolvePlayable(tracks[index]);
+      final queue = [...tracks];
+      queue[index] = resolvedStart;
+      state = state.copyWith(
+        queue: queue,
+        currentIndex: index,
+        position: Duration.zero,
+        bufferedPosition: Duration.zero,
+        clearError: true,
+      );
+      await _setQueue(queue, startIndex: index);
+      _loadLyricsForCurrentTrack();
+      await _handler.play();
+      unawaited(_resolveQueueInBackground(generation, index));
+    } on Object catch (error) {
+      state = state.copyWith(errorMessage: _playbackErrorText(error));
+    }
+  }
+
+  /// 解析在线曲的播放地址（已解析或非在线曲原样返回），并应用歌词 offset。
+  /// 仅解析 URL（封面来自歌单数据、歌词随播放单独加载），保持后台批量解析轻量。
+  Future<Track> _resolvePlayable(Track track) async {
+    if (track.type != TrackType.online) {
+      return track;
+    }
+    final url = track.url?.trim();
+    if (url != null && url.isNotEmpty) {
+      return track;
+    }
+    final resolved = await _musicRepository().resolvePlaybackUrl(track);
+    return _ref.read(lyricOffsetRepositoryProvider).applyOffset(resolved);
+  }
+
+  /// 确保 [index] 处的在线曲已解析；若是当前曲则替换后重新定位到它。
+  Future<void> _ensureResolvedAt(int index) async {
+    if (index < 0 || index >= state.queue.length) {
+      return;
+    }
+    final track = state.queue[index];
+    if (track.type != TrackType.online) {
+      return;
+    }
+    final existing = track.url?.trim();
+    if (existing != null && existing.isNotEmpty) {
+      return;
+    }
+    final Track resolved;
+    try {
+      resolved = await _resolvePlayable(track);
+    } on Object catch (error) {
+      state = state.copyWith(errorMessage: _playbackErrorText(error));
+      return;
+    }
+    if (index >= state.queue.length || state.queue[index].id != track.id) {
+      return;
+    }
+    updateTrackInQueue(resolved);
+    await _handler.replaceTrackAt(index, resolved);
+    if (index == (state.currentIndex ?? -1)) {
+      await _player.seek(Duration.zero, index: index);
+    }
+  }
+
+  /// 当前曲若是未解析占位，解析并恢复播放态（跳到未解析曲、恢复后按播放时兜底）。
+  Future<void> _ensureCurrentResolved() async {
+    final index = state.currentIndex;
+    if (index == null || index < 0 || index >= state.queue.length) {
+      return;
+    }
+    final track = state.queue[index];
+    if (track.type != TrackType.online) {
+      return;
+    }
+    final url = track.url?.trim();
+    if (url != null && url.isNotEmpty) {
+      return;
+    }
+    final wasPlaying = _player.playing;
+    await _ensureResolvedAt(index);
+    if (wasPlaying) {
+      await _handler.play();
+    }
+  }
+
+  /// 后台按「当前→之后→之前」顺序解析其余未解析的在线曲，逐个原地替换。
+  /// 当前曲交由 [_ensureCurrentResolved] 处理，这里跳过以免打断播放。
+  Future<void> _resolveQueueInBackground(int generation, int startIndex) async {
+    final order = <int>[
+      for (var i = startIndex; i < state.queue.length; i++) i,
+      for (var i = 0; i < startIndex; i++) i,
+    ];
+    for (final position in order) {
+      if (generation != _queueGeneration) {
+        return;
+      }
+      if (position >= state.queue.length) {
+        continue;
+      }
+      final track = state.queue[position];
+      if (track.type != TrackType.online) {
+        continue;
+      }
+      final url = track.url?.trim();
+      if (url != null && url.isNotEmpty) {
+        continue;
+      }
+      try {
+        final resolved = await _resolvePlayable(track);
+        if (generation != _queueGeneration) {
+          return;
+        }
+        final idx = state.queue.indexWhere(
+          (item) => item.id == track.id && (item.url?.trim().isEmpty ?? true),
+        );
+        if (idx < 0 || idx == state.currentIndex) {
+          continue;
+        }
+        updateTrackInQueue(resolved);
+        await _handler.replaceTrackAt(idx, resolved);
+      } on Object {
+        // 单曲解析失败不影响其他曲。
+      }
+    }
+  }
+
+  String _playbackErrorText(Object error) {
+    if (error is NeteaseApiException) {
+      return error.isUnauthorized ? '网易云登录态已失效' : error.message;
+    }
+    return '播放失败：$error';
   }
 
   Future<void> togglePlayPause() async {
@@ -110,6 +267,7 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
     if (_player.playing) {
       await _handler.pause();
     } else {
+      await _ensureResolvedAt(state.currentIndex ?? 0);
       await _handler.play();
     }
   }
@@ -172,10 +330,7 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
       return;
     }
 
-    final currentTrack = state.currentTrack;
-    final currentPosition = _player.position;
-    final queue = [...state.queue]..removeAt(index);
-    if (queue.isEmpty) {
+    if (state.queue.length == 1) {
       await _handler.stop();
       state = state.copyWith(
         queue: const [],
@@ -184,40 +339,20 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
         bufferedPosition: Duration.zero,
         clearDuration: true,
       );
+      unawaited(_persistNowPlaying());
       return;
     }
 
-    final currentIndex = _clampIndex(
-      state.currentIndex ?? 0,
-      state.queue.length,
-    );
-    final nextIndex = index < currentIndex
+    final queue = [...state.queue]..removeAt(index);
+    final currentIndex = state.currentIndex ?? 0;
+    final newIndex = index < currentIndex
         ? currentIndex - 1
         : _clampIndex(currentIndex, queue.length);
-    final shouldPreservePosition =
-        currentTrack != null && identical(queue[nextIndex], currentTrack);
-    final initialPosition = shouldPreservePosition ? currentPosition : null;
-    final wasPlaying = _player.playing;
-    state = state.copyWith(
-      queue: queue,
-      currentIndex: nextIndex,
-      position: initialPosition ?? Duration.zero,
-      bufferedPosition: shouldPreservePosition
-          ? state.bufferedPosition
-          : Duration.zero,
-    );
-    await _setQueue(
-      queue,
-      startIndex: nextIndex,
-      initialPosition: initialPosition,
-    );
-    if (shouldPreservePosition) {
-      state = state.copyWith(position: currentPosition);
-    }
-    _loadLyricsForCurrentTrack();
-    if (wasPlaying) {
-      await _handler.play();
-    }
+    state = state.copyWith(queue: queue, currentIndex: newIndex);
+    // 原地移除：just_audio 自动衔接——移除当前曲会无缝进入下一首，
+    // 移除其他曲不打断当前播放，避免整轮重建造成的卡顿。
+    await _handler.removeTrackAt(index);
+    _scheduleSave();
   }
 
   Future<void> insertNext(Track track) async {
@@ -225,54 +360,36 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
       state = state.copyWith(errorMessage: '歌曲文件不存在或不可播放');
       return;
     }
-
     if (!state.hasQueue) {
       await playQueue([track]);
       return;
     }
+    await _insertAfterCurrent(track);
+  }
 
-    final currentIndex = _clampIndex(
-      state.currentIndex ?? 0,
-      state.queue.length,
-    );
-    final currentTrack = state.currentTrack;
-    final currentPosition = _player.position;
-    var nextIndex = currentIndex;
-    final queue = <Track>[];
-    for (var index = 0; index < state.queue.length; index++) {
-      final item = state.queue[index];
-      if (index == currentIndex) {
-        nextIndex = queue.length;
-        queue.add(item);
-      } else if (item.id != track.id) {
-        queue.add(item);
-      }
+  /// 把 [track] 插入到当前曲之后并立即跳转播放；无队列时直接播放。
+  ///
+  /// 用于搜索点歌等「不清空队列、插播一首」的场景。
+  Future<void> insertAndPlay(Track track) async {
+    if (!state.hasQueue) {
+      await playQueue([track]);
+      return;
     }
-    queue.insert(_clampInsertIndex(nextIndex + 1, queue.length), track);
-    final shouldPreservePosition =
-        currentTrack != null && identical(queue[nextIndex], currentTrack);
-    final initialPosition = shouldPreservePosition ? currentPosition : null;
-    final wasPlaying = _player.playing;
-    state = state.copyWith(
-      queue: queue,
-      currentIndex: nextIndex,
-      position: initialPosition ?? Duration.zero,
-      bufferedPosition: shouldPreservePosition
-          ? state.bufferedPosition
-          : Duration.zero,
-    );
-    await _setQueue(
-      queue,
-      startIndex: nextIndex,
-      initialPosition: initialPosition,
-    );
-    if (shouldPreservePosition) {
-      state = state.copyWith(position: currentPosition);
-    }
-    _loadLyricsForCurrentTrack();
-    if (wasPlaying) {
-      await _handler.play();
-    }
+    final target = await _insertAfterCurrent(track);
+    await _player.seek(Duration.zero, index: target);
+    await _handler.play();
+  }
+
+  /// 把 [track] 原地插入到当前曲之后（不重建音源）。返回插入后的索引。
+  Future<int> _insertAfterCurrent(Track track) async {
+    final queue = [...state.queue];
+    final currentIndex = _clampIndex(state.currentIndex ?? 0, queue.length);
+    final target = _clampInsertIndex(currentIndex + 1, queue.length);
+    queue.insert(target, track);
+    state = state.copyWith(queue: queue);
+    await _handler.insertTrack(target, track);
+    _scheduleSave();
+    return target;
   }
 
   Future<Track> setLyricOffset(Track track, double offset) async {
@@ -306,6 +423,9 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
       isPlaying: playerState.playing,
       processingState: playerState.processingState,
     );
+    if (!playerState.playing) {
+      _scheduleSave();
+    }
   }
 
   bool _canPlay(Track track) {
@@ -466,8 +586,65 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
     return index;
   }
 
+  Future<void> _restoreNowPlaying() async {
+    if (state.hasQueue) {
+      return;
+    }
+    final snapshot = await _nowPlaying.load();
+    if (snapshot == null ||
+        snapshot.tracks.isEmpty ||
+        !mounted ||
+        state.hasQueue) {
+      return;
+    }
+    final index = snapshot.currentIndex == null
+        ? 0
+        : _clampIndex(snapshot.currentIndex!, snapshot.tracks.length);
+    _queueGeneration++;
+    state = state.copyWith(
+      queue: snapshot.tracks,
+      currentIndex: index,
+      position: snapshot.position,
+    );
+    try {
+      await _setQueue(
+        snapshot.tracks,
+        startIndex: index,
+        initialPosition: snapshot.position,
+      );
+    } on Object {
+      // 恢复失败不影响启动。
+    }
+    // 不自动播放：当前在线曲为未解析占位，首次播放时由 _ensureResolvedAt 懒解析。
+  }
+
+  void _scheduleSave() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(seconds: 2), () {
+      unawaited(_persistNowPlaying());
+    });
+  }
+
+  Future<void> _persistNowPlaying() async {
+    await _nowPlaying.save(state.queue, state.currentIndex, state.position);
+  }
+
+  /// 播放中每跨越 10 秒整就持久化一次进度，避免频繁写库又能较好恢复位置。
+  void _maybePersistPosition(Duration position) {
+    if (!state.hasQueue) {
+      return;
+    }
+    final seconds = position.inSeconds;
+    if (seconds != _lastSavedPositionSec && seconds > 0 && seconds % 10 == 0) {
+      _lastSavedPositionSec = seconds;
+      unawaited(_persistNowPlaying());
+    }
+  }
+
   @override
   void dispose() {
+    _saveTimer?.cancel();
+    unawaited(_persistNowPlaying());
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
     }

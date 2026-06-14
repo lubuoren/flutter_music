@@ -3,9 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/playlist.dart';
-import '../../../data/models/track.dart';
 import '../../../data/remote/netease/netease_api_client.dart';
-import '../../../data/remote/netease/netease_music_repository.dart';
+import '../../../data/remote/netease/netease_collection_cache.dart';
 import '../../../data/remote/netease/netease_playlist_repository.dart';
 import '../../login/application/netease_auth_controller.dart';
 import '../../player/application/lyric_offset_repository.dart';
@@ -154,6 +153,7 @@ class NeteasePlaylistDetailController
 
   final Ref _ref;
   final String _playlistId;
+  final NeteaseCollectionCache _collectionCache = NeteaseCollectionCache();
 
   Future<void> refresh() async {
     final playlistId = _playlistId.trim();
@@ -162,16 +162,31 @@ class NeteasePlaylistDetailController
       return;
     }
 
+    final isDailyRecommend = playlistId == 'daily-songs';
+    final cacheable = !isDailyRecommend;
+
+    // 先出缓存：命中则立即展示；若仍新鲜则跳过网络刷新。
+    CachedCollection? cached;
+    if (cacheable) {
+      cached = await _collectionCache.load(playlistId);
+      if (cached != null) {
+        await _applyPlaylist(cached.playlist, isLoading: false);
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (isCacheFresh(cached.savedAtMs, now, _cacheTtlFor(playlistId))) {
+          return;
+        }
+      }
+    }
+
     state = state.copyWith(
       isLoading: true,
-      clearError: true,
+      clearError: cached == null,
       clearPlaybackError: true,
       clearResolvingTrack: true,
       isResolvingQueue: false,
     );
 
     await _ref.read(neteaseAuthControllerProvider.notifier).load();
-    final isDailyRecommend = playlistId == 'daily-songs';
     if (isDailyRecommend &&
         !_ref.read(neteaseAuthControllerProvider).isLoggedIn) {
       state = state.copyWith(
@@ -192,21 +207,54 @@ class NeteasePlaylistDetailController
       } else {
         playlist = await repository.fetchPlaylistDetail(playlistId);
       }
-      final tracks = await _ref
-          .read(lyricOffsetRepositoryProvider)
-          .applyOffsets(playlist.tracks);
-      state = state.copyWith(
-        playlist: playlist.copyWith(tracks: tracks),
-        isLoading: false,
-      );
+      final resolved = await _applyPlaylist(playlist, isLoading: false);
+      if (cacheable) {
+        unawaited(
+          _collectionCache.save(
+            playlistId,
+            resolved,
+            nowMs: DateTime.now().millisecondsSinceEpoch,
+          ),
+        );
+      }
     } on NeteaseApiException catch (error) {
+      // 有缓存则保留缓存内容，仅在无缓存时报错。
       state = state.copyWith(
         isLoading: false,
-        errorMessage: error.isUnauthorized ? '网易云登录态已失效' : error.message,
+        errorMessage: cached != null
+            ? null
+            : (error.isUnauthorized ? '网易云登录态已失效' : error.message),
       );
     } on Object catch (error) {
-      state = state.copyWith(isLoading: false, errorMessage: '歌单加载失败：$error');
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: cached != null ? null : '歌单加载失败：$error',
+      );
     }
+  }
+
+  /// 应用歌词 offset 后写入 state，并返回处理后的歌单（供缓存写入）。
+  Future<Playlist> _applyPlaylist(
+    Playlist playlist, {
+    required bool isLoading,
+  }) async {
+    final tracks = await _ref
+        .read(lyricOffsetRepositoryProvider)
+        .applyOffsets(playlist.tracks);
+    final resolved = playlist.copyWith(tracks: tracks);
+    state = state.copyWith(
+      playlist: resolved,
+      isLoading: isLoading,
+      clearError: true,
+    );
+    return resolved;
+  }
+
+  Duration _cacheTtlFor(String playlistId) {
+    if (playlistId.startsWith('album:') || playlistId.startsWith('artist:')) {
+      return const Duration(hours: 24);
+    }
+    return const Duration(hours: 1);
   }
 
   Future<void> playAll() {
@@ -220,77 +268,21 @@ class NeteasePlaylistDetailController
     }
 
     final startIndex = _clampIndex(index, playlist.tracks.length);
-    final startTrackId = playlist.tracks[startIndex].id;
     state = state.copyWith(
-      resolvingTrackId: startTrackId,
+      resolvingTrackId: playlist.tracks[startIndex].id,
       isResolvingQueue: true,
       clearPlaybackError: true,
     );
-
-    try {
-      var tracks = await _musicRepository().tracksWithPlaybackUrls(
-        playlist.tracks,
-      );
-      tracks = [...tracks];
-
-      final startTrack = tracks[startIndex];
-      if (!_hasPlayableUrl(startTrack)) {
-        throw const NeteaseApiException(
-          message: '未获取到歌曲播放地址，可能需要登录或歌曲受版权限制',
-          path: '/song/url',
-        );
-      }
-
-      try {
-        tracks[startIndex] = await _musicRepository().trackWithRemoteLyrics(
-          startTrack,
-        );
-      } on Object {
-        // The track is still playable without lyrics.
-      }
-
-      tracks = await _ref
-          .read(lyricOffsetRepositoryProvider)
-          .applyOffsets(tracks);
-      final playableQueue = tracks.where(_hasPlayableUrl).toList();
-      final playableStartIndex = playableQueue.indexWhere(
-        (track) => track.id == startTrackId,
-      );
-      if (playableQueue.isEmpty || playableStartIndex < 0) {
-        throw const NeteaseApiException(
-          message: '歌单中没有可播放的歌曲',
-          path: '/song/url',
-        );
-      }
-
-      state = state.copyWith(
-        playlist: playlist.copyWith(tracks: tracks),
-        isResolvingQueue: false,
-        clearResolvingTrack: true,
-      );
-      await _ref
-          .read(musicPlayerControllerProvider.notifier)
-          .playQueue(playableQueue, startIndex: playableStartIndex);
-      final playerError = _ref.read(
-        musicPlayerControllerProvider.select((state) => state.errorMessage),
-      );
-      if (playerError != null) {
-        state = state.copyWith(playbackErrorMessage: playerError);
-      }
-    } on NeteaseApiException catch (error) {
-      state = state.copyWith(
-        playbackErrorMessage: error.isUnauthorized
-            ? '网易云登录态已失效'
-            : error.message,
-        isResolvingQueue: false,
-        clearResolvingTrack: true,
-      );
-    } on Object catch (error) {
-      state = state.copyWith(
-        playbackErrorMessage: '播放失败：$error',
-        isResolvingQueue: false,
-        clearResolvingTrack: true,
-      );
+    // 秒播 + 后台解析：只解析起始曲并立即播放，其余曲目由播放器在后台解析。
+    await _ref
+        .read(musicPlayerControllerProvider.notifier)
+        .playQueueLazy(playlist.tracks, startIndex: startIndex);
+    state = state.copyWith(isResolvingQueue: false, clearResolvingTrack: true);
+    final playerError = _ref.read(
+      musicPlayerControllerProvider.select((state) => state.errorMessage),
+    );
+    if (playerError != null) {
+      state = state.copyWith(playbackErrorMessage: playerError);
     }
   }
 
@@ -304,28 +296,10 @@ class NeteasePlaylistDetailController
     return index;
   }
 
-  bool _hasPlayableUrl(Track track) {
-    final url = track.url?.trim();
-    return url != null && url.isNotEmpty;
-  }
-
   NeteasePlaylistRepository _playlistRepository() {
     final settings = _ref.read(appSettingsControllerProvider);
     final auth = _ref.read(neteaseAuthControllerProvider);
     return NeteasePlaylistRepository(
-      client: NeteaseApiClient(
-        config: NeteaseApiConfig(
-          baseUrl: settings.neteaseApiBaseUrl,
-          cookie: auth.cookie,
-        ),
-      ),
-    );
-  }
-
-  NeteaseMusicRepository _musicRepository() {
-    final settings = _ref.read(appSettingsControllerProvider);
-    final auth = _ref.read(neteaseAuthControllerProvider);
-    return NeteaseMusicRepository(
       client: NeteaseApiClient(
         config: NeteaseApiConfig(
           baseUrl: settings.neteaseApiBaseUrl,

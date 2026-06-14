@@ -16,6 +16,9 @@ class MusicAudioHandler extends BaseAudioHandler {
   final AudioPlayer player = AudioPlayer();
   final List<StreamSubscription<Object?>> _subscriptions = [];
 
+  /// 当前音源；持有引用以便对队列做原地增删改而不整轮重建。
+  ConcatenatingAudioSource? _source;
+
   Future<void> setTracks(
     List<Track> tracks, {
     required int startIndex,
@@ -28,16 +31,62 @@ class MusicAudioHandler extends BaseAudioHandler {
           ? mediaItems[startIndex]
           : null,
     );
+    final source = ConcatenatingAudioSource(
+      children: [for (final track in tracks) _audioSourceForTrack(track)],
+    );
+    _source = source;
     await player.setAudioSource(
-      ConcatenatingAudioSource(
-        children: [
-          for (final track in tracks)
-            AudioSource.uri(_trackUri(track), tag: track.id),
-        ],
-      ),
+      source,
       initialIndex: startIndex,
       initialPosition: initialPosition,
     );
+  }
+
+  /// 在 [index] 处插入一首（原地，不重建其他项）。无音源时退化为 setTracks。
+  Future<void> insertTrack(int index, Track track) async {
+    final source = _source;
+    if (source == null) {
+      await setTracks([track], startIndex: 0);
+      return;
+    }
+    final items = [...queue.value];
+    final clamped = index < 0
+        ? 0
+        : (index > items.length ? items.length : index);
+    items.insert(clamped, _toMediaItem(track));
+    queue.add(items);
+    await source.insert(clamped, _audioSourceForTrack(track));
+  }
+
+  /// 移除 [index] 处的一首（原地）。
+  Future<void> removeTrackAt(int index) async {
+    final source = _source;
+    if (source == null || index < 0 || index >= source.length) {
+      return;
+    }
+    final items = [...queue.value];
+    if (index < items.length) {
+      items.removeAt(index);
+      queue.add(items);
+    }
+    await source.removeAt(index);
+  }
+
+  /// 用 [track] 替换 [index] 处的音源（把静音占位换成已解析曲）。
+  ///
+  /// 仅应在 [index] 不是当前播放项时调用，避免打断当前曲。
+  Future<void> replaceTrackAt(int index, Track track) async {
+    final source = _source;
+    if (source == null || index < 0 || index >= source.length) {
+      return;
+    }
+    final items = [...queue.value];
+    if (index < items.length) {
+      items[index] = _toMediaItem(track);
+      queue.add(items);
+    }
+    await source.removeAt(index);
+    await source.insert(index, _audioSourceForTrack(track));
   }
 
   @override
@@ -139,17 +188,31 @@ class MusicAudioHandler extends BaseAudioHandler {
     );
   }
 
-  Uri _trackUri(Track track) {
+  /// 为歌曲构建音源：已有播放地址用真实音源；未解析的在线曲用静音占位，
+  /// 保持音源与队列索引对齐，解析完再用 [replaceTrackAt] 换回真实音源。
+  AudioSource _audioSourceForTrack(Track track) {
+    final uri = _playableUri(track);
+    if (uri != null) {
+      return AudioSource.uri(uri, tag: track.id);
+    }
+    return SilenceAudioSource(
+      tag: track.id,
+      duration: track.durationMs == 0
+          ? const Duration(seconds: 1)
+          : track.duration,
+    );
+  }
+
+  Uri? _playableUri(Track track) {
     final url = track.url?.trim();
     if (url != null && url.isNotEmpty) {
       return Uri.parse(url);
     }
-
     final filePath = track.filePath;
     if (filePath != null && filePath.isNotEmpty) {
       return Uri.file(filePath);
     }
-    throw StateError('歌曲缺少可播放地址');
+    return null;
   }
 
   Uri? _artUri(String? value) {

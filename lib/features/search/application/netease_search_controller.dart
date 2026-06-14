@@ -116,9 +116,9 @@ class NeteaseSearchController extends StateNotifier<NeteaseSearchState> {
         ],
         clearResolvingTrack: true,
       );
-      await _ref.read(musicPlayerControllerProvider.notifier).playQueue([
-        playableTrack,
-      ]);
+      await _ref
+          .read(musicPlayerControllerProvider.notifier)
+          .insertAndPlay(playableTrack);
     } on NeteaseApiException catch (error) {
       state = state.copyWith(
         playbackErrorMessage: error.isUnauthorized
