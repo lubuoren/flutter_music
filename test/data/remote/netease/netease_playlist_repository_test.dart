@@ -130,5 +130,44 @@ void main() {
 
       expect(ids, ['123', '456', '789']);
     });
+
+    test('dailyTracksFromRecommendJson maps data.dailySongs', () {
+      final tracks = NeteasePlaylistRepository.dailyTracksFromRecommendJson({
+        'code': 200,
+        'data': {
+          'dailySongs': [
+            {
+              'id': 555,
+              'name': 'Daily Song',
+              'dt': 200000,
+              'ar': [
+                {'name': 'Daily Artist'},
+              ],
+              'al': {
+                'name': 'Daily Album',
+                'picUrl': 'http://p1.music.126.net/x.jpg',
+              },
+            },
+          ],
+        },
+      });
+
+      expect(tracks, hasLength(1));
+      expect(tracks.single.id, '555');
+      expect(tracks.single.title, 'Daily Song');
+      expect(tracks.single.artists, ['Daily Artist']);
+      expect(tracks.single.album, 'Daily Album');
+      expect(tracks.single.source, 'netease');
+      expect(tracks.single.type, TrackType.online);
+      // 封面 http 应被归一化为 https。
+      expect(tracks.single.coverUrl, 'https://p1.music.126.net/x.jpg');
+    });
+
+    test('dailyTracksFromRecommendJson returns empty when missing', () {
+      expect(
+        NeteasePlaylistRepository.dailyTracksFromRecommendJson({'code': 200}),
+        isEmpty,
+      );
+    });
   });
 }

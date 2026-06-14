@@ -103,21 +103,22 @@ lib/data/local/database/
   migrations/
 ```
 
-首版表：
+当前已建表（schema 内联在 `app_database.dart` 的 `_onCreate`，数据库 version 1）：
 
 ```text
 tracks(id, type, source, file_path, json, updated_at)
-albums(id, matched, json, updated_at)
-artists(id, matched, json, updated_at)
-playlists(id, is_local, source, json, updated_at)
+playlists(id, name, is_local, source, json, created_at, updated_at)
 playlist_tracks(playlist_id, track_id, position, added_at)
 liked_tracks(track_id, source, created_at)
-play_history(track_id, played_at, duration_ms, source)
-lyrics(track_id, source, json, updated_at)
-audio_cache(id, bit_rate, format, source, url, queried_at)
-account_data(id, source, json, updated_at)
+play_history(id, track_id, played_at, duration_ms, source)
 app_data(id, value)
 ```
+
+规划中（尚未建表）：`albums`、`artists`、`lyrics`、`audio_cache`、`account_data`。
+
+> `migrations/001_initial_schema.sql` 是与 `_onCreate` 等价的 schema 快照，当前**未在运行时加载**；
+> 尚未接入 `onUpgrade` 版本化迁移（version 恒为 1）。后续若需改表，需补 `onUpgrade`
+> 或改为运行时按版本读取 `migrations/*.sql`（参考原项目 `src/main/db.ts`）。
 
 ## 本地资源映射
 
@@ -134,7 +135,7 @@ Flutter 端映射为：
 ## 数据迁移状态
 
 1. ✅ 引入 sqflite 和数据库初始化。
-2. ✅ 建立首版 schema 与迁移脚本目录。
+2. ✅ 建立首版 schema（version 1，`_onCreate` 内联建表）。
 3. ✅ 启动时读取 `shared_preferences` 中的 Phase 2 快照并导入数据库。
 4. ✅ 本地扫描写入数据库，不再写回旧媒体库 JSON 列表。
 5. ✅ 播放历史、喜欢歌曲、本地歌单改为数据库写入。

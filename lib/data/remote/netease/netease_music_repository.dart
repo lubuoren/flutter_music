@@ -327,7 +327,9 @@ class NeteaseMusicRepository {
 
   static Track _trackFromSong(Map<String, Object?> song) {
     final album = _albumFromSong(song);
-    final coverUrl = _stringValue(album?['picUrl'] ?? album?['blurPicUrl']);
+    final coverUrl = _normalizedImageUrl(
+      _stringValue(album?['picUrl'] ?? album?['blurPicUrl']),
+    );
 
     return Track(
       id: _stringValue(song['id']) ?? '',
@@ -463,6 +465,20 @@ class NeteaseMusicRepository {
       return null;
     }
     return _stringValue(value['lyric']);
+  }
+
+  static String? _normalizedImageUrl(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    if (trimmed.startsWith('//')) {
+      return 'https:$trimmed';
+    }
+    if (trimmed.startsWith('http://')) {
+      return trimmed.replaceFirst('http://', 'https://');
+    }
+    return trimmed;
   }
 
   static String? _stringValue(Object? value) {

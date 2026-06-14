@@ -13,7 +13,7 @@
 
 接入约定：
 
-- 开发默认 Base URL：`http://12900hx-es.tail8bbb9b.ts.net:3000/`。
+- 开发默认 Base URL：`https://12900hx-es.tail8bbb9b.ts.net:3000/`（Tailscale Funnel 公网地址，走 TLS）。
 - Base URL 可在应用设置页修改并持久化。
 - 桌面端和 iOS 模拟器可访问宿主机 localhost；Android 模拟器访问宿主机需使用 `10.0.2.2`。
 - 真机需填写局域网或已部署的 HTTPS 地址，生产环境不依赖公开演示服务。
@@ -50,13 +50,14 @@ lib/data/remote/netease/
 - `NeteaseMusicRepository.tracksByIds`：按 `trackIds` 批量调用 `/song/detail`，补齐歌单完整歌曲列表。
 - `NeteaseMusicRepository.tracksWithPlaybackUrls`：批量调用 `/song/url`，为歌单播放队列补齐播放地址。
 - `NeteasePlaylistRepository`：调用 `/user/playlist` 和 `/playlist/detail`，映射统一 `Playlist`，并在详情 `tracks` 不完整时按 `trackIds` 补齐。
+- `NeteasePlaylistRepository.fetchDailyRecommendTracks`：调用 `/recommend/songs`，映射「每日推荐」歌曲并复用歌单播放链路（首页 → `/daily/songs`）。
 - `LyricOffsetRepository`：为网易云等云端歌曲保存播放器内调整的歌词 offset。
 
 下一步顺序：
 
 1. 手机号/邮箱登录；
 2. 专辑、艺术家详情；
-3. 每日推荐、私人 FM、评论和 MV。
+3. 私人 FM、评论写操作和 MV。
 
 ## auth.ts 登录与账号
 

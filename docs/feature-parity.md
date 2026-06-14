@@ -86,7 +86,7 @@
 | 艺术家 | api/artist.ts, views/ArtistPage.vue | features/artist | ⬜ |
 | 评论 | api/comment.ts, components/CommentPage.vue | features/comments | 🟡 `/comment/new` 列表、推荐/最热/最新切换与分页已接入，点赞/发表/楼层详情待补 |
 | MV | api/mv.ts, views/MvPage.vue | features/mv | ⬜ |
-| 每日推荐 | api/playlist.ts, views/DailyTracks.vue | features/playlist | ⬜ |
+| 每日推荐 | api/playlist.ts, views/DailyTracks.vue | features/playlist（/daily/songs） | ✅ 列表与播放，推荐歌单（/recommend/resource）待补 |
 | 私人 FM | api/other personalFM, components/FMCard.vue | features/player | ⬜ |
 | 云盘 | api/user cloudDisk | features/library | ⬜ |
 | 喜欢列表 | api/user, store/data.ts | features/library | ⬜ |
@@ -122,6 +122,6 @@
 |---|---|---|---|
 | 本地数据库 | main/db.ts, public/migrations/* | data/local/database | ✅ |
 | 设置持久化 | pinia-plugin-persistedstate | shared_preferences | ✅ |
-| 数据库迁移 | public/migrations/*.sql | data/local/database/migrations | ✅ |
+| 数据库迁移 | public/migrations/*.sql | data/local/database（onCreate，暂无 onUpgrade） | 🟡 |
 
 数据库表结构与迁移脚本说明见 docs/data-model.md。

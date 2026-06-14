@@ -171,10 +171,19 @@ class NeteasePlaylistDetailController
     );
 
     await _ref.read(neteaseAuthControllerProvider.notifier).load();
-    try {
-      final playlist = await _playlistRepository().fetchPlaylistDetail(
-        playlistId,
+    final isDailyRecommend = playlistId == 'daily-songs';
+    if (isDailyRecommend &&
+        !_ref.read(neteaseAuthControllerProvider).isLoggedIn) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: '请先登录网易云后查看每日推荐',
       );
+      return;
+    }
+    try {
+      final playlist = isDailyRecommend
+          ? await _playlistRepository().fetchDailyRecommendTracks()
+          : await _playlistRepository().fetchPlaylistDetail(playlistId);
       final tracks = await _ref
           .read(lyricOffsetRepositoryProvider)
           .applyOffsets(playlist.tracks);

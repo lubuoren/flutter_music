@@ -8,7 +8,7 @@ class NeteaseApiConfig {
     this.realIp,
   });
 
-  static const defaultBaseUrl = 'http://12900hx-es.tail8bbb9b.ts.net:3000/';
+  static const defaultBaseUrl = 'https://12900hx-es.tail8bbb9b.ts.net:3000/';
 
   final String baseUrl;
   final String? cookie;

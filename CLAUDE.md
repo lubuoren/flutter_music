@@ -38,7 +38,7 @@ fvm flutter run -d linux
 
 ## 架构概览
 
-项目目标：将 VutronMusic（Electron + Vue3）重构为 Flutter + MD3/MD3E。`third_party/VutronMusic/` 是原项目源码的只读参考副本，不参与编译。当前 Phase 2 MVP 已完成（本地音乐播放），Phase 3 进行中（MD3/MD3E 完整 UI）。
+项目目标：将 VutronMusic（Electron + Vue3）重构为 Flutter + MD3/MD3E。`third_party/VutronMusic/` 是原项目源码的只读参考副本，不参与编译。当前 Phase 3 已完成（MD3/MD3E 完整 UI），Phase 4 进行中（网易云在线能力迁移）。
 
 ### 目录分层
 

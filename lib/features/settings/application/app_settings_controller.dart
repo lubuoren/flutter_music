@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const _defaultNeteaseApiBaseUrl = 'http://12900hx-es.tail8bbb9b.ts.net:3000/';
+const _defaultNeteaseApiBaseUrl = 'https://12900hx-es.tail8bbb9b.ts.net:3000/';
 const _legacyDefaultNeteaseApiBaseUrls = {
   'http://127.0.0.1:3000',
   'http://10.0.2.2:3000',
+  // 旧的明文 HTTP Tailscale 地址，自动升级到 https 默认值。
+  'http://12900hx-es.tail8bbb9b.ts.net:3000/',
+  'http://12900hx-es.tail8bbb9b.ts.net:3000',
 };
 
 String defaultNeteaseApiBaseUrl() {

@@ -424,7 +424,7 @@ class _RemoteEntryGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cards = [
-      ('每日推荐', '等待网易云登录与推荐接口接入', '/daily/songs'),
+      ('每日推荐', '登录网易云后查看每日推荐歌曲', '/daily/songs'),
       ('私人 FM', 'Phase 4 接入网易云私人 FM', '/explore'),
       ('流媒体服务', 'Navidrome / Jellyfin / Emby', '/stream'),
       ('系统设置', '主题、播放、歌词与音效', '/settings'),

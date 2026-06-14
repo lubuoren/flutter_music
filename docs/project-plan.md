@@ -46,7 +46,7 @@ fvm flutter test
 以下事项已在 Phase 3 内完成：
 
 - ✅ 将 `shared_preferences` 媒体库快照迁移到 sqflite 数据库。
-- ✅ 添加数据库迁移脚本目录与首版 schema。
+- ✅ 建立首版 schema（数据库 version 1，`_onCreate` 内联建表）；⚠️ 版本化迁移（`onUpgrade`）尚未接入。
 - ✅ 实现本地歌单创建、编辑、删除、歌曲增删。
 - ✅ 将 LRC 解析接入滚动歌词视图，并按原 VutronMusic Classic 主窗口样式对齐。
 - 🟡 逐字歌词/LDDC 展示（模型已就绪，解析待接入）。
@@ -68,12 +68,13 @@ Phase 3 已完成。后续保留为歌词增强与质量补强：
 当前已完成：
 
 - `NeteaseApiClient` 通用请求与错误包装；
-- 设置页可配置 API Base URL，并为 Android 模拟器默认使用 `10.0.2.2`。
+- 设置页可配置 API Base URL，默认连接 Tailscale Funnel 公网地址（https）；自建服务时桌面/iOS 模拟器用 localhost、Android 模拟器用 `10.0.2.2`。
 - `/search` 歌曲搜索与统一 `Track` 映射，搜索后批量 `/song/detail` 补齐列表封面。
 - `/song/url` 播放地址解析，并支持从搜索结果直接播放在线歌曲。
 - 二维码登录、Cookie 导入、登录态校验与退出登录基础闭环。
 - `/song/detail` 云端封面详情与 `/lyric/new` 云端歌词补齐。
 - `/user/playlist` 云端歌单列表与 `/playlist/detail` 歌单详情已接入，详情页支持歌单内搜索和播放前批量解析播放地址。
+- `/recommend/songs` 每日推荐歌曲已接入（首页入口 → `/daily/songs`），复用歌单播放链路。
 - 云端歌曲歌词 offset 可在播放器内调整并通过 `shared_preferences` 持久化。
 - `/comment/new` 评论列表、排序与分页加载已接入，评论页补齐列表入场与状态切换动效。
 - Web 客户端基础支持：sqflite Web worker/wasm 资产、平台封面/播放适配；浏览器端优先支持网易云搜索与播放，本地目录扫描仍限定原生端。
@@ -105,5 +106,5 @@ Phase 3 已完成。后续保留为歌词增强与质量补强：
 | `src/renderer/views/` | `lib/features/*/presentation/pages/` | 页面 |
 | `src/main/workers/scanMusic.ts` | `lib/data/local/` | 本地扫描与元数据读取 |
 | `src/main/appServer/`、`src/renderer/api/` | `lib/data/remote/netease/` | 网易云接口 |
-| `src/main/streaming/` | `lib/features/stream/providers/` | 流媒体 Provider |
+| `src/main/streaming/` | `lib/features/stream/`（domain 抽象 + 后续 providers 实现） | 流媒体 Provider |
 | `src/public/migrations/` | `lib/data/local/database/migrations/` | 数据库迁移 |

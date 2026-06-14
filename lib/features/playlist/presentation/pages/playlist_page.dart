@@ -45,11 +45,13 @@ class _PlaylistPageState extends ConsumerState<PlaylistPage> {
       return _LocalPlaylistView(playlistId: localId, title: widget.title);
     }
 
+    // 每日推荐
+    if (playlistId == 'daily-songs') {
+      return const _NeteaseDailySongsView();
+    }
+
     // 网易云歌单详情
-    if (source == 'netease' &&
-        playlistId != null &&
-        playlistId.isNotEmpty &&
-        playlistId != 'daily-songs') {
+    if (source == 'netease' && playlistId != null && playlistId.isNotEmpty) {
       return _NeteasePlaylistView(
         playlistId: playlistId,
         fallbackTitle: widget.title,
@@ -489,6 +491,178 @@ class _NeteasePlaylistViewState extends ConsumerState<_NeteasePlaylistView> {
               onPressed: state.isResolvingQueue ? null : controller.playAll,
             ),
     );
+  }
+}
+
+/// 每日推荐视图，复用网易云歌单详情控制器（id 固定为 `daily-songs`）。
+class _NeteaseDailySongsView extends ConsumerWidget {
+  const _NeteaseDailySongsView();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final provider = neteasePlaylistDetailControllerProvider('daily-songs');
+    final state = ref.watch(provider);
+    final controller = ref.read(provider.notifier);
+    final playlist = state.playlist;
+
+    ref.listen(provider.select((state) => state.playbackErrorMessage), (
+      previous,
+      next,
+    ) {
+      if (next != null && next != previous && context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(next)));
+      }
+    });
+
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar.large(
+            title: const Text('每日推荐'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: '刷新每日推荐',
+                onPressed: state.isLoading ? null : controller.refresh,
+              ),
+            ],
+          ),
+          if (state.isLoading && playlist == null)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (state.errorMessage != null && playlist == null)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _PlaylistMessage(
+                icon: Icons.cloud_off_rounded,
+                title: '每日推荐加载失败',
+                subtitle: state.errorMessage!,
+                actionLabel: '重试',
+                onAction: controller.refresh,
+              ),
+            )
+          else if (playlist == null || playlist.tracks.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: _PlaylistMessage(
+                icon: Icons.recommend_rounded,
+                title: '暂无每日推荐',
+                subtitle: '登录网易云后每天会生成专属推荐',
+              ),
+            )
+          else ...[
+            if (state.isLoading)
+              const SliverToBoxAdapter(child: LinearProgressIndicator()),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+              sliver: SliverToBoxAdapter(
+                child: _DailySongsHeader(
+                  playlist: playlist,
+                  isResolvingQueue: state.isResolvingQueue,
+                  onPlayAll: state.isResolvingQueue ? null : controller.playAll,
+                ),
+              ),
+            ),
+            _NeteaseTrackListSliver(
+              playlist: playlist,
+              keyword: '',
+              resolvingTrackId: state.resolvingTrackId,
+              isResolvingQueue: state.isResolvingQueue,
+              onPlayTrack: controller.playFromIndex,
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 96)),
+          ],
+        ],
+      ),
+      floatingActionButton: playlist == null || playlist.tracks.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              icon: state.isResolvingQueue
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.play_arrow_rounded),
+              label: Text(state.isResolvingQueue ? '解析中' : '播放全部'),
+              onPressed: state.isResolvingQueue ? null : controller.playAll,
+            ),
+    );
+  }
+}
+
+class _DailySongsHeader extends StatelessWidget {
+  const _DailySongsHeader({
+    required this.playlist,
+    required this.isResolvingQueue,
+    required this.onPlayAll,
+  });
+
+  final Playlist playlist;
+  final bool isResolvingQueue;
+  final VoidCallback? onPlayAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 720;
+        final cover = _PlaylistCover(
+          coverUrl: _firstTrackCoverUrl(playlist),
+          size: isWide ? 220 : 168,
+        );
+        final info = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('每日推荐', style: Theme.of(context).textTheme.headlineMedium),
+            const SizedBox(height: 8),
+            Text(
+              '根据你的口味每天更新 · ${playlist.tracks.length} 首',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: onPlayAll,
+              icon: isResolvingQueue
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.play_arrow_rounded),
+              label: Text(isResolvingQueue ? '解析中' : '播放'),
+            ),
+          ],
+        );
+
+        if (isWide) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              cover,
+              const SizedBox(width: 24),
+              Expanded(child: info),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [cover, const SizedBox(height: 18), info],
+        );
+      },
+    );
+  }
+
+  String? _firstTrackCoverUrl(Playlist playlist) {
+    for (final track in playlist.tracks) {
+      final coverUrl = track.coverUrl?.trim();
+      if (coverUrl != null && coverUrl.isNotEmpty) {
+        return coverUrl;
+      }
+    }
+    return null;
   }
 }
 

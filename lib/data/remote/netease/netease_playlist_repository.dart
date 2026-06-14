@@ -67,6 +67,39 @@ class NeteasePlaylistRepository {
     return playlistFromPlaylistJson(payload, tracks: tracks);
   }
 
+  /// 每日推荐歌曲（`/recommend/songs`，需登录）。返回合成的「每日推荐」歌单。
+  Future<Playlist> fetchDailyRecommendTracks() async {
+    final json = await _client.getJson(
+      '/recommend/songs',
+      queryParameters: {'timestamp': DateTime.now().millisecondsSinceEpoch},
+    );
+    final tracks = dailyTracksFromRecommendJson(json);
+    return Playlist(
+      id: 'daily-songs',
+      name: '每日推荐',
+      source: 'netease',
+      trackCount: tracks.length,
+      tracks: tracks,
+    );
+  }
+
+  static List<Track> dailyTracksFromRecommendJson(Map<String, Object?> json) {
+    final data = _mapValue(json['data']);
+    final rawSongs =
+        data?['dailySongs'] ?? data?['songs'] ?? json['dailySongs'];
+    if (rawSongs is! List) {
+      return const [];
+    }
+    return rawSongs
+        .whereType<Map>()
+        .map(
+          (song) => NeteaseMusicRepository.trackFromSongJson(
+            Map<String, Object?>.from(song),
+          ),
+        )
+        .toList();
+  }
+
   static List<Playlist> playlistsFromUserPlaylistJson(
     Map<String, Object?> json,
   ) {

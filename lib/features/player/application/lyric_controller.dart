@@ -138,7 +138,8 @@ class LyricController extends StateNotifier<LyricState> {
   }
 
   /// 二分查找返回 `positionMs` 所在的歌词行索引。
-  /// 返回 `start <= positionMs < end` 的第一行；如果没有匹配，返回 -1。
+  /// 命中 `start <= positionMs < end` 时返回该行；落在两行间隙（逐字歌词常见）
+  /// 或所有行之后时，返回上一句已开始的行以保持高亮；仅在第一行之前返回 null。
   int? _binarySearch(List<LyricLine> lines, int positionMs) {
     // 优化：如果当前行仍然有效，直接返回
     final currentIndex = state.currentIndex;
@@ -167,11 +168,8 @@ class LyricController extends StateNotifier<LyricState> {
       }
     }
 
-    // 如果 positionMs 在所有行之前，返回 null
-    // 如果 positionMs 在所有行之后，返回最后一行
-    if (lo >= lines.length) {
-      return lines.length - 1;
-    }
-    return null;
+    // 此时 lo 是 positionMs 的插入位置：lo-1 是最后一句已开始的歌词行。
+    // 落在间隙或所有行之后时保持上一句高亮；positionMs 在第一行之前才返回 null。
+    return lo > 0 ? lo - 1 : null;
   }
 }
