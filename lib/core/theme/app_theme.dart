@@ -1,19 +1,28 @@
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:m3e_design/m3e_design.dart';
 
 class AppTheme {
-  static ThemeData lightTheme() {
-    return ColorScheme.fromSeed(
-      seedColor: const Color(0xFF335EEA),
-      brightness: Brightness.light,
-    ).toM3EThemeData();
+  static const _seedColor = Color(0xFF335EEA);
+
+  static ThemeData lightTheme([ColorScheme? dynamicScheme]) {
+    return (dynamicScheme ??
+            ColorScheme.fromSeed(
+              seedColor: _seedColor,
+              brightness: Brightness.light,
+            ))
+        .harmonized()
+        .toM3EThemeData();
   }
 
-  static ThemeData darkTheme() {
-    return ColorScheme.fromSeed(
-      seedColor: const Color(0xFF335EEA),
-      brightness: Brightness.dark,
-    ).toM3EThemeData();
+  static ThemeData darkTheme([ColorScheme? dynamicScheme]) {
+    return (dynamicScheme ??
+            ColorScheme.fromSeed(
+              seedColor: _seedColor,
+              brightness: Brightness.dark,
+            ))
+        .harmonized()
+        .toM3EThemeData();
   }
 
   static ThemeData blackTheme() {

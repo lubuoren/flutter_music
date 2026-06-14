@@ -1,3 +1,4 @@
+import '../../models/lyric_source_marker.dart';
 import '../../models/track.dart';
 import 'netease_api_client.dart';
 
@@ -283,22 +284,41 @@ class NeteaseMusicRepository {
   static String? lyricsFromLyricNewJson(Map<String, Object?> json) {
     final rawYrc = _lyricText(json['yrc']);
     if (rawYrc != null && rawYrc.isNotEmpty) {
-      return [
-        rawYrc,
-        _lyricText(json['ytlrc']),
-        _lyricText(json['yromalrc']),
-      ].whereType<String>().where((line) => line.trim().isNotEmpty).join('\n');
+      return _combineLyricSources(
+        main: rawYrc,
+        translation: _lyricText(json['ytlrc']),
+        romanization: _lyricText(json['yromalrc']),
+      );
     }
 
     final rawLrc = _lyricText(json['lrc']);
     if (rawLrc == null || rawLrc.isEmpty) {
       return null;
     }
+    return _combineLyricSources(
+      main: rawLrc,
+      translation: _lyricText(json['tlyric']),
+      romanization: _lyricText(json['romalrc']),
+    );
+  }
+
+  static String _combineLyricSources({
+    required String main,
+    String? translation,
+    String? romanization,
+  }) {
     return [
-      rawLrc,
-      _lyricText(json['tlyric']),
-      _lyricText(json['romalrc']),
-    ].whereType<String>().where((line) => line.trim().isNotEmpty).join('\n');
+      markLyricSource(lyricSourceMain),
+      main,
+      if (translation != null && translation.trim().isNotEmpty) ...[
+        markLyricSource(lyricSourceTranslation),
+        translation,
+      ],
+      if (romanization != null && romanization.trim().isNotEmpty) ...[
+        markLyricSource(lyricSourceRomanization),
+        romanization,
+      ],
+    ].join('\n');
   }
 
   static Track trackFromSongJson(Map<String, Object?> song) {

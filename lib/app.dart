@@ -1,3 +1,4 @@
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,15 +14,19 @@ class VutronMusicApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
     final settings = ref.watch(appSettingsControllerProvider);
 
-    return MaterialApp.router(
-      title: 'VutronMusic',
-      debugShowCheckedModeBanner: false,
-      routerConfig: router,
-      theme: AppTheme.lightTheme(),
-      darkTheme: settings.themeMode == AppThemeMode.black
-          ? AppTheme.blackTheme()
-          : AppTheme.darkTheme(),
-      themeMode: settings.materialThemeMode,
+    return DynamicColorBuilder(
+      builder: (lightDynamic, darkDynamic) {
+        return MaterialApp.router(
+          title: 'VutronMusic',
+          debugShowCheckedModeBanner: false,
+          routerConfig: router,
+          theme: AppTheme.lightTheme(lightDynamic),
+          darkTheme: settings.themeMode == AppThemeMode.black
+              ? AppTheme.blackTheme()
+              : AppTheme.darkTheme(darkDynamic),
+          themeMode: settings.materialThemeMode,
+        );
+      },
     );
   }
 }

@@ -20,7 +20,11 @@ class AppShell extends StatelessWidget {
             Expanded(
               child: Column(
                 children: [
-                  Expanded(child: navigationShell),
+                  Expanded(
+                    child: _AnimatedNavigationShell(
+                      navigationShell: navigationShell,
+                    ),
+                  ),
                   if (isWide) const PlayerBar(),
                 ],
               ),
@@ -37,6 +41,80 @@ class AppShell extends StatelessWidget {
                 _MobileBottomNavigation(navigationShell: navigationShell),
               ],
             ),
+    );
+  }
+}
+
+class PlayerBarRouteScaffold extends StatelessWidget {
+  const PlayerBarRouteScaffold({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final isWide = MediaQuery.sizeOf(context).width >= 900;
+
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(child: child),
+            if (isWide) const PlayerBar(),
+          ],
+        ),
+      ),
+      bottomNavigationBar: isWide ? null : const PlayerBar(),
+    );
+  }
+}
+
+class _AnimatedNavigationShell extends StatefulWidget {
+  const _AnimatedNavigationShell({required this.navigationShell});
+
+  final StatefulNavigationShell navigationShell;
+
+  @override
+  State<_AnimatedNavigationShell> createState() =>
+      _AnimatedNavigationShellState();
+}
+
+class _AnimatedNavigationShellState extends State<_AnimatedNavigationShell> {
+  late int _lastIndex;
+  var _direction = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastIndex = widget.navigationShell.currentIndex;
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedNavigationShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final currentIndex = widget.navigationShell.currentIndex;
+    if (currentIndex != _lastIndex) {
+      _direction = currentIndex > _lastIndex ? 1 : -1;
+      _lastIndex = currentIndex;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      key: ValueKey(_lastIndex),
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      child: widget.navigationShell,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: 0.88 + value * 0.12,
+          child: FractionalTranslation(
+            translation: Offset((1 - value) * 0.035 * _direction, 0),
+            child: child,
+          ),
+        );
+      },
     );
   }
 }

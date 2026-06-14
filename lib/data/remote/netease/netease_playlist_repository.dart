@@ -111,9 +111,7 @@ class NeteasePlaylistRepository {
       id: _stringValue(playlist['id']) ?? '',
       name: _stringValue(playlist['name']) ?? '未命名歌单',
       description: _stringValue(playlist['description']),
-      coverUrl: _stringValue(
-        playlist['coverImgUrl'] ?? playlist['picUrl'] ?? playlist['coverUrl'],
-      ),
+      coverUrl: _coverUrlFromPlaylistJson(playlist),
       creatorUserId: _stringValue(creator?['userId']),
       creatorName: _stringValue(creator?['nickname']),
       source: 'netease',
@@ -197,6 +195,58 @@ class NeteasePlaylistRepository {
     if (value is num) {
       return value.toString();
     }
+    return null;
+  }
+
+  static String? _normalizedImageUrl(String? value) {
+    final trimmedValue = value?.trim();
+    if (trimmedValue == null || trimmedValue.isEmpty) {
+      return null;
+    }
+    if (trimmedValue.startsWith('//')) {
+      return 'https:$trimmedValue';
+    }
+    if (trimmedValue.startsWith('http://')) {
+      return trimmedValue.replaceFirst('http://', 'https://');
+    }
+    return trimmedValue;
+  }
+
+  static String? _coverUrlFromPlaylistJson(Map<String, Object?> playlist) {
+    for (final key in const [
+      'coverImgUrl',
+      'picUrl',
+      'coverUrl',
+      'coverImageUrl',
+      'imageUrl',
+      'cover',
+      'iconImgUrl',
+      'backgroundCoverUrl',
+      'backgroundImageUrl',
+      'titleImageUrl',
+    ]) {
+      final url = _normalizedImageUrl(_stringValue(playlist[key]));
+      if (url != null) {
+        return url;
+      }
+    }
+
+    for (final key in const [
+      'socialPlaylistCover',
+      'recommendInfo',
+      'coverInfo',
+      'resource',
+    ]) {
+      final nested = _mapValue(playlist[key]);
+      if (nested == null) {
+        continue;
+      }
+      final url = _coverUrlFromPlaylistJson(nested);
+      if (url != null) {
+        return url;
+      }
+    }
+
     return null;
   }
 

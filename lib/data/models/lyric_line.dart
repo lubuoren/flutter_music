@@ -20,6 +20,7 @@ class LyricLine {
     required this.end,
     required this.text,
     this.translation,
+    this.romanization,
     this.words = const [],
   });
 
@@ -35,8 +36,38 @@ class LyricLine {
   /// 翻译文本。
   final String? translation;
 
+  /// 罗马音文本。
+  final String? romanization;
+
   /// 逐字时间片段。为空时表示普通整行歌词。
   final List<LyricWord> words;
 
   bool get isWordByWord => words.isNotEmpty;
+
+  bool get hasSecondaryAlternatives {
+    return translation != null &&
+        translation!.isNotEmpty &&
+        romanization != null &&
+        romanization!.isNotEmpty;
+  }
+
+  LyricLine copyWith({
+    int? start,
+    int? end,
+    String? text,
+    String? translation,
+    String? romanization,
+    List<LyricWord>? words,
+  }) {
+    return LyricLine(
+      start: start ?? this.start,
+      end: end ?? this.end,
+      text: text ?? this.text,
+      translation: translation ?? this.translation,
+      romanization: romanization ?? this.romanization,
+      words: words ?? this.words,
+    );
+  }
 }
+
+enum LyricSecondaryTextMode { translation, romanization }

@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/platform/cover_image_provider.dart';
 import '../../../../data/local/local_music_repository.dart';
 import '../../../../data/models/playlist.dart';
 import '../../../../data/models/track.dart';
-import '../../../player/application/player_controller.dart';
+import '../../../../widgets/resilient_cover_image.dart';
 import '../../../../widgets/md3/section_header.dart';
 import '../../../../widgets/md3/track_tile.dart';
+import '../../../player/application/player_controller.dart';
 import '../../application/local_playlist_controller.dart';
 import '../../application/netease_playlist_controller.dart';
 
@@ -515,7 +515,7 @@ class _NeteasePlaylistHeader extends StatelessWidget {
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 720;
         final cover = _PlaylistCover(
-          coverUrl: playlist.coverUrl,
+          coverUrl: playlist.coverUrl ?? _firstTrackCoverUrl(playlist),
           size: isWide ? 220 : 168,
         );
         final info = _PlaylistInfo(
@@ -543,6 +543,16 @@ class _NeteasePlaylistHeader extends StatelessWidget {
         );
       },
     );
+  }
+
+  String? _firstTrackCoverUrl(Playlist playlist) {
+    for (final track in playlist.tracks) {
+      final coverUrl = track.coverUrl?.trim();
+      if (coverUrl != null && coverUrl.isNotEmpty) {
+        return coverUrl;
+      }
+    }
+    return null;
   }
 }
 
@@ -670,36 +680,21 @@ class _PlaylistCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final image = coverImageProvider(coverUrl);
     final colorScheme = Theme.of(context).colorScheme;
+    final fallback = ColoredBox(
+      color: colorScheme.surfaceContainerHighest,
+      child: Icon(
+        Icons.queue_music_rounded,
+        size: size * 0.34,
+        color: colorScheme.primary,
+      ),
+    );
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: SizedBox.square(
         dimension: size,
-        child: image == null
-            ? ColoredBox(
-                color: colorScheme.surfaceContainerHighest,
-                child: Icon(
-                  Icons.queue_music_rounded,
-                  size: size * 0.34,
-                  color: colorScheme.primary,
-                ),
-              )
-            : Image(
-                image: image,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return ColoredBox(
-                    color: colorScheme.surfaceContainerHighest,
-                    child: Icon(
-                      Icons.queue_music_rounded,
-                      size: size * 0.34,
-                      color: colorScheme.primary,
-                    ),
-                  );
-                },
-              ),
+        child: ResilientCoverImage(coverUrl: coverUrl, fallback: fallback),
       ),
     );
   }

@@ -13,7 +13,7 @@
 
 接入约定：
 
-- 开发默认 Base URL：桌面/iOS/Web 为 `http://127.0.0.1:3000`，Android 模拟器为 `http://10.0.2.2:3000`。
+- 开发默认 Base URL：`http://12900hx-es.tail8bbb9b.ts.net:3000/`。
 - Base URL 可在应用设置页修改并持久化。
 - 桌面端和 iOS 模拟器可访问宿主机 localhost；Android 模拟器访问宿主机需使用 `10.0.2.2`。
 - 真机需填写局域网或已部署的 HTTPS 地址，生产环境不依赖公开演示服务。

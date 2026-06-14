@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:flutter_music/data/models/lyric_source_marker.dart';
 import 'package:flutter_music/data/models/track.dart';
 import 'package:flutter_music/data/remote/netease/netease_music_repository.dart';
 
@@ -188,7 +189,15 @@ void main() {
         'romalrc': {'lyric': ''},
       });
 
-      expect(lyrics, '[00:01.00]你好\n[00:01.00]Hello');
+      expect(
+        lyrics,
+        [
+          markLyricSource(lyricSourceMain),
+          '[00:01.00]你好',
+          markLyricSource(lyricSourceTranslation),
+          '[00:01.00]Hello',
+        ].join('\n'),
+      );
     });
 
     test('lyricsFromLyricNewJson prefers yrc word lyric', () {
@@ -198,7 +207,15 @@ void main() {
         'ytlrc': {'lyric': '[00:01.00]Hello'},
       });
 
-      expect(lyrics, '[1000,2000](1000,500,0)你(1500,500,0)好\n[00:01.00]Hello');
+      expect(
+        lyrics,
+        [
+          markLyricSource(lyricSourceMain),
+          '[1000,2000](1000,500,0)你(1500,500,0)好',
+          markLyricSource(lyricSourceTranslation),
+          '[00:01.00]Hello',
+        ].join('\n'),
+      );
     });
   });
 }

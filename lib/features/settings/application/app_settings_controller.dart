@@ -1,16 +1,15 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const _defaultNeteaseApiBaseUrl = 'http://12900hx-es.tail8bbb9b.ts.net:3000/';
+const _legacyDefaultNeteaseApiBaseUrls = {
+  'http://127.0.0.1:3000',
+  'http://10.0.2.2:3000',
+};
+
 String defaultNeteaseApiBaseUrl() {
-  if (kIsWeb) {
-    return 'http://127.0.0.1:3000';
-  }
-  return switch (defaultTargetPlatform) {
-    TargetPlatform.android => 'http://10.0.2.2:3000',
-    _ => 'http://127.0.0.1:3000',
-  };
+  return _defaultNeteaseApiBaseUrl;
 }
 
 final appSettingsControllerProvider =
@@ -27,7 +26,7 @@ class AppSettingsState {
     this.clickPlayerBarToLyrics = false,
     this.showChorus = true,
     this.fadeDuration = 0.2,
-    this.neteaseApiBaseUrl = 'http://127.0.0.1:3000',
+    this.neteaseApiBaseUrl = _defaultNeteaseApiBaseUrl,
   });
 
   final AppThemeMode themeMode;
@@ -79,6 +78,14 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
 
   Future<void> load() async {
     final preferences = await SharedPreferences.getInstance();
+    final savedNeteaseApiBaseUrl = preferences.getString(_neteaseApiBaseUrlKey);
+    final neteaseApiBaseUrl = _normalizedDefaultApiBaseUrl(
+      savedNeteaseApiBaseUrl,
+    );
+    if (savedNeteaseApiBaseUrl != null &&
+        savedNeteaseApiBaseUrl != neteaseApiBaseUrl) {
+      await preferences.setString(_neteaseApiBaseUrlKey, neteaseApiBaseUrl);
+    }
     state = AppSettingsState(
       themeMode: _themeModeFromName(preferences.getString(_themeModeKey)),
       showBanner: preferences.getBool(_showBannerKey) ?? true,
@@ -86,9 +93,7 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
           preferences.getBool(_clickPlayerBarToLyricsKey) ?? false,
       showChorus: preferences.getBool(_showChorusKey) ?? true,
       fadeDuration: preferences.getDouble(_fadeDurationKey) ?? 0.2,
-      neteaseApiBaseUrl:
-          preferences.getString(_neteaseApiBaseUrlKey) ??
-          defaultNeteaseApiBaseUrl(),
+      neteaseApiBaseUrl: neteaseApiBaseUrl,
     );
   }
 
@@ -136,5 +141,15 @@ class AppSettingsController extends StateNotifier<AppSettingsState> {
       (mode) => mode.name == value,
       orElse: () => AppThemeMode.system,
     );
+  }
+
+  String _normalizedDefaultApiBaseUrl(String? value) {
+    final trimmedValue = value?.trim();
+    if (trimmedValue == null ||
+        trimmedValue.isEmpty ||
+        _legacyDefaultNeteaseApiBaseUrls.contains(trimmedValue)) {
+      return defaultNeteaseApiBaseUrl();
+    }
+    return trimmedValue;
   }
 }

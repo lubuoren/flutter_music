@@ -9,6 +9,7 @@ class LyricView extends StatefulWidget {
     this.currentIndex,
     this.position = Duration.zero,
     this.textAlign = TextAlign.left,
+    this.secondaryTextMode = LyricSecondaryTextMode.translation,
     this.onLineTap,
   });
 
@@ -16,6 +17,7 @@ class LyricView extends StatefulWidget {
   final int? currentIndex;
   final Duration position;
   final TextAlign textAlign;
+  final LyricSecondaryTextMode secondaryTextMode;
   final ValueChanged<LyricLine>? onLineTap;
 
   @override
@@ -229,6 +231,7 @@ class _LyricViewState extends State<LyricView> {
                   isCurrent: index == widget.currentIndex,
                   positionMs: widget.position.inMilliseconds,
                   textAlign: widget.textAlign,
+                  secondaryTextMode: widget.secondaryTextMode,
                   onTap: widget.onLineTap == null
                       ? null
                       : () => widget.onLineTap!(widget.lines[index]),
@@ -248,6 +251,7 @@ class _LyricLineTile extends StatelessWidget {
     required this.isCurrent,
     required this.positionMs,
     required this.textAlign,
+    required this.secondaryTextMode,
     this.onTap,
   });
 
@@ -255,6 +259,7 @@ class _LyricLineTile extends StatelessWidget {
   final bool isCurrent;
   final int positionMs;
   final TextAlign textAlign;
+  final LyricSecondaryTextMode secondaryTextMode;
   final VoidCallback? onTap;
 
   @override
@@ -266,6 +271,7 @@ class _LyricLineTile extends StatelessWidget {
       TextAlign.right || TextAlign.end => CrossAxisAlignment.end,
       _ => CrossAxisAlignment.start,
     };
+    final secondaryText = _secondaryText();
 
     return AnimatedScale(
       scale: isCurrent ? 1 : 0.95,
@@ -298,26 +304,21 @@ class _LyricLineTile extends StatelessWidget {
                   textAlign: textAlign,
                 ),
               ),
-              if (line.translation != null && line.translation!.isNotEmpty)
+              if (secondaryText != null && secondaryText.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: AnimatedDefaultTextStyle(
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeOutCubic,
                     style: theme.textTheme.titleMedium!.copyWith(
-                      fontSize: 26,
+                      fontSize: 20,
                       color: isCurrent
                           ? colorScheme.onSurface.withValues(alpha: 0.82)
                           : colorScheme.onSurface.withValues(alpha: 0.38),
-                      fontWeight: FontWeight.w600,
-                      height: 1.18,
+                      fontWeight: FontWeight.w500,
+                      height: 1.22,
                     ),
-                    child: Text(
-                      line.translation!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: textAlign,
-                    ),
+                    child: Text(secondaryText, textAlign: textAlign),
                   ),
                 ),
             ],
@@ -341,6 +342,15 @@ class _LyricLineTile extends StatelessWidget {
     }
     return colorScheme.onSurface;
   }
+
+  String? _secondaryText() {
+    return switch (secondaryTextMode) {
+      LyricSecondaryTextMode.translation =>
+        line.translation ?? line.romanization,
+      LyricSecondaryTextMode.romanization =>
+        line.romanization ?? line.translation,
+    };
+  }
 }
 
 class _LyricText extends StatelessWidget {
@@ -361,12 +371,7 @@ class _LyricText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!line.isWordByWord) {
-      return Text(
-        line.text,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        textAlign: textAlign,
-      );
+      return Text(line.text, textAlign: textAlign);
     }
 
     final playedColor = colorScheme.onSurface;
@@ -385,8 +390,6 @@ class _LyricText extends StatelessWidget {
             ),
         ],
       ),
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
       textAlign: textAlign,
     );
   }

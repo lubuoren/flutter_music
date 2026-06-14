@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/local/lrc_parser.dart';
@@ -5,13 +8,22 @@ import '../../../data/models/lyric_line.dart';
 import 'player_controller.dart';
 
 class LyricState {
-  const LyricState({this.lines = const [], this.currentIndex, this.trackId});
+  const LyricState({
+    this.lines = const [],
+    this.currentIndex,
+    this.trackId,
+    this.secondaryTextMode = LyricSecondaryTextMode.translation,
+  });
 
   final List<LyricLine> lines;
   final int? currentIndex;
   final String? trackId;
+  final LyricSecondaryTextMode secondaryTextMode;
 
   bool get hasLyrics => lines.isNotEmpty;
+  bool get hasSecondaryTextAlternatives {
+    return lines.any((line) => line.hasSecondaryAlternatives);
+  }
 
   LyricState copyWith({
     List<LyricLine>? lines,
@@ -19,6 +31,7 @@ class LyricState {
     bool clearCurrentIndex = false,
     String? trackId,
     bool clearTrackId = false,
+    LyricSecondaryTextMode? secondaryTextMode,
   }) {
     return LyricState(
       lines: lines ?? this.lines,
@@ -26,6 +39,7 @@ class LyricState {
           ? null
           : currentIndex ?? this.currentIndex,
       trackId: clearTrackId ? null : trackId ?? this.trackId,
+      secondaryTextMode: secondaryTextMode ?? this.secondaryTextMode,
     );
   }
 }
@@ -56,8 +70,10 @@ class LyricController extends StateNotifier<LyricState> {
   }
 
   final Ref _ref;
+  var _trackRequestId = 0;
 
   void _onTrackChanged(String? lyricsRaw, String? trackId) {
+    final requestId = ++_trackRequestId;
     if (lyricsRaw == null || lyricsRaw.trim().isEmpty) {
       state = state.copyWith(
         lines: const [],
@@ -67,13 +83,40 @@ class LyricController extends StateNotifier<LyricState> {
       return;
     }
 
-    final lines = parseLrc(lyricsRaw);
     state = state.copyWith(
-      lines: lines,
+      lines: const [],
       clearCurrentIndex: true,
       trackId: trackId,
     );
-    _onPositionChanged(_ref.read(musicPlayerControllerProvider).position);
+    unawaited(
+      compute(parseLrc, lyricsRaw)
+          .then((lines) {
+            if (!mounted || requestId != _trackRequestId) {
+              return;
+            }
+            state = state.copyWith(
+              lines: lines,
+              clearCurrentIndex: true,
+              trackId: trackId,
+              secondaryTextMode:
+                  lines.any((line) => line.hasSecondaryAlternatives)
+                  ? state.secondaryTextMode
+                  : LyricSecondaryTextMode.translation,
+            );
+            _onPositionChanged(
+              _ref.read(musicPlayerControllerProvider).position,
+            );
+          })
+          .catchError((Object _) {}),
+    );
+  }
+
+  void setSecondaryTextMode(LyricSecondaryTextMode mode) {
+    if (mode == state.secondaryTextMode ||
+        !state.hasSecondaryTextAlternatives) {
+      return;
+    }
+    state = state.copyWith(secondaryTextMode: mode);
   }
 
   void _onPositionChanged(Duration position) {

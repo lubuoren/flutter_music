@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -35,7 +36,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/',
                 pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: HomePage()),
+                    _transitionPage(state, const HomePage()),
               ),
             ],
           ),
@@ -44,7 +45,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/explore',
                 pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: ExplorePage()),
+                    _transitionPage(state, const ExplorePage()),
               ),
             ],
           ),
@@ -53,12 +54,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/library',
                 pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: LibraryPage()),
+                    _transitionPage(state, const LibraryPage()),
               ),
               GoRoute(
                 path: '/library/liked-songs',
-                pageBuilder: (context, state) => NoTransitionPage(
-                  child: PlaylistPage(
+                pageBuilder: (context, state) => _transitionPage(
+                  state,
+                  PlaylistPage(
                     playlistId: 'liked-songs',
                     title: '我喜欢的音乐',
                     source: 'local',
@@ -72,12 +74,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/localMusic',
                 pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: LocalMusicPage()),
+                    _transitionPage(state, const LocalMusicPage()),
               ),
               GoRoute(
                 path: '/localPlaylist/:id',
-                pageBuilder: (context, state) => NoTransitionPage(
-                  child: PlaylistPage(
+                pageBuilder: (context, state) => _transitionPage(
+                  state,
+                  PlaylistPage(
                     playlistId: state.pathParameters['id'],
                     title: '本地歌单',
                     source: 'local',
@@ -91,7 +94,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/settings',
                 pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: SettingsPage()),
+                    _transitionPage(state, const SettingsPage()),
               ),
             ],
           ),
@@ -100,20 +103,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/stream',
         pageBuilder: (context, state) =>
-            const NoTransitionPage(child: StreamPage()),
+            _playerBarPage(state, const StreamPage()),
       ),
       GoRoute(
         path: '/streamLogin/:service',
-        pageBuilder: (_, state) => NoTransitionPage(
-          child: StreamLoginPage(
-            service: state.pathParameters['service'] ?? '',
-          ),
+        pageBuilder: (_, state) => _playerBarPage(
+          state,
+          StreamLoginPage(service: state.pathParameters['service'] ?? ''),
         ),
       ),
       GoRoute(
         path: '/streamPlaylist/:service/:id',
-        pageBuilder: (context, state) => NoTransitionPage(
-          child: PlaylistPage(
+        pageBuilder: (context, state) => _playerBarPage(
+          state,
+          PlaylistPage(
             playlistId: state.pathParameters['id'],
             title: '${state.pathParameters['service']} 歌单',
             source: 'stream',
@@ -122,8 +125,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/stream-liked-songs/:service',
-        pageBuilder: (context, state) => NoTransitionPage(
-          child: PlaylistPage(
+        pageBuilder: (context, state) => _playerBarPage(
+          state,
+          PlaylistPage(
             playlistId: 'stream-${state.pathParameters['service']}-liked-songs',
             title: '${state.pathParameters['service']} 喜欢的音乐',
             source: 'stream',
@@ -132,8 +136,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/playlist/:id',
-        pageBuilder: (context, state) => NoTransitionPage(
-          child: PlaylistPage(
+        pageBuilder: (context, state) => _playerBarPage(
+          state,
+          PlaylistPage(
             playlistId: state.pathParameters['id'],
             title: '歌单',
             source: 'netease',
@@ -142,8 +147,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/daily/songs',
-        pageBuilder: (context, state) => NoTransitionPage(
-          child: PlaylistPage(
+        pageBuilder: (context, state) => _playerBarPage(
+          state,
+          const PlaylistPage(
             playlistId: 'daily-songs',
             title: '每日推荐',
             source: 'netease',
@@ -153,51 +159,54 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login/account',
         pageBuilder: (context, state) =>
-            const NoTransitionPage(child: LoginPage()),
+            _playerBarPage(state, const LoginPage()),
       ),
       GoRoute(
         path: '/album/:id',
-        pageBuilder: (context, state) => NoTransitionPage(
-          child: AlbumPage(albumId: state.pathParameters['id']),
+        pageBuilder: (context, state) => _playerBarPage(
+          state,
+          AlbumPage(albumId: state.pathParameters['id']),
         ),
       ),
       GoRoute(
         path: '/artist/:id',
-        pageBuilder: (context, state) => NoTransitionPage(
-          child: ArtistPage(artistId: state.pathParameters['id']),
+        pageBuilder: (context, state) => _playerBarPage(
+          state,
+          ArtistPage(artistId: state.pathParameters['id']),
         ),
       ),
       GoRoute(
         path: '/artist/:id/mv',
-        pageBuilder: (context, state) => NoTransitionPage(
-          child: ArtistMvPage(artistId: state.pathParameters['id']),
+        pageBuilder: (context, state) => _playerBarPage(
+          state,
+          ArtistMvPage(artistId: state.pathParameters['id']),
         ),
       ),
       GoRoute(
         path: '/search',
         pageBuilder: (context, state) =>
-            const NoTransitionPage(child: SearchPage()),
+            _playerBarPage(state, const SearchPage()),
       ),
       GoRoute(
         path: '/user/:id',
-        pageBuilder: (context, state) => NoTransitionPage(
-          child: UserPage(userId: state.pathParameters['id']),
-        ),
+        pageBuilder: (context, state) =>
+            _playerBarPage(state, UserPage(userId: state.pathParameters['id'])),
       ),
       GoRoute(
         path: '/mv/:id',
         pageBuilder: (context, state) =>
-            NoTransitionPage(child: MvPage(mvId: state.pathParameters['id'])),
+            _playerBarPage(state, MvPage(mvId: state.pathParameters['id'])),
       ),
       GoRoute(
         path: '/next',
         pageBuilder: (context, state) =>
-            const NoTransitionPage(child: NextUpPage()),
+            _playerBarPage(state, const NextUpPage()),
       ),
       GoRoute(
         path: '/comments/:resourceType/:id',
-        pageBuilder: (context, state) => NoTransitionPage(
-          child: CommentsPage(
+        pageBuilder: (context, state) => _playerBarPage(
+          state,
+          CommentsPage(
             resourceType: state.pathParameters['resourceType'] ?? 'track',
             resourceId: state.pathParameters['id'],
           ),
@@ -206,14 +215,45 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/player/lyrics',
         pageBuilder: (context, state) =>
-            const NoTransitionPage(child: PlayerLyricsPage()),
+            _transitionPage(state, const PlayerLyricsPage()),
       ),
       GoRoute(
         path: '/player',
         pageBuilder: (context, state) =>
-            const NoTransitionPage(child: PlayerPage()),
+            _transitionPage(state, const PlayerPage()),
       ),
       GoRoute(path: '/:pathMatch(.*)*', redirect: (context, state) => '/'),
     ],
   );
 });
+
+CustomTransitionPage<void> _playerBarPage(GoRouterState state, Widget child) {
+  return _transitionPage(state, PlayerBarRouteScaffold(child: child));
+}
+
+CustomTransitionPage<void> _transitionPage(GoRouterState state, Widget child) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    transitionDuration: const Duration(milliseconds: 240),
+    reverseTransitionDuration: const Duration(milliseconds: 180),
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curvedAnimation = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+
+      return FadeTransition(
+        opacity: curvedAnimation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.025, 0),
+            end: Offset.zero,
+          ).animate(curvedAnimation),
+          child: child,
+        ),
+      );
+    },
+  );
+}

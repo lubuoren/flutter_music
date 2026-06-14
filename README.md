@@ -95,7 +95,7 @@ darkTheme: ColorScheme.fromSeed(
 ## Phase 4 进行中
 
 - ✅ 网易云 API 接入层打底：新增 `lib/data/remote/netease/`，使用 `dio` 调用 `api-enhanced` HTTP 服务；
-- ✅ 设置页新增 Netease API Base URL，桌面/iOS/Web 默认 `http://127.0.0.1:3000`，Android 模拟器默认 `http://10.0.2.2:3000`；
+- ✅ 设置页新增 Netease API Base URL，默认 `http://12900hx-es.tail8bbb9b.ts.net:3000/`；
 - ✅ 搜索页接入网易云歌曲搜索并映射为统一 `Track` 模型，搜索结果会批量请求 `/song/detail` 补齐封面；
 - ✅ 搜索结果可通过 `/song/url` 解析播放地址并加入播放器播放；
 - ✅ 二维码登录、Cookie 导入、登录态校验与退出登录基础闭环；
@@ -108,7 +108,7 @@ darkTheme: ColorScheme.fromSeed(
 
 ```text
 api-enhanced 仓库：https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced
-Flutter 默认连接：桌面/iOS/Web 为 http://127.0.0.1:3000，Android 模拟器为 http://10.0.2.2:3000
+Flutter 默认连接：http://12900hx-es.tail8bbb9b.ts.net:3000/
 ```
 
 Flutter 客户端不内置 Node.js 服务，开发和自用时请独立运行或部署 `api-enhanced`，再在设置页填写服务地址。

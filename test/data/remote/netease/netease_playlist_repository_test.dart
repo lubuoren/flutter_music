@@ -63,6 +63,38 @@ void main() {
       expect(playlist.trackCount, 2);
     });
 
+    test('playlistFromPlaylistJson normalizes netease cover urls', () {
+      final httpPlaylist = NeteasePlaylistRepository.playlistFromPlaylistJson({
+        'id': 1,
+        'name': 'HTTP Cover',
+        'coverImgUrl': 'http://p1.music.126.net/cover.jpg',
+      });
+      final protocolRelativePlaylist =
+          NeteasePlaylistRepository.playlistFromPlaylistJson({
+            'id': 2,
+            'name': 'Protocol Relative Cover',
+            'coverImgUrl': '//p2.music.126.net/cover.jpg',
+          });
+
+      expect(httpPlaylist.coverUrl, 'https://p1.music.126.net/cover.jpg');
+      expect(
+        protocolRelativePlaylist.coverUrl,
+        'https://p2.music.126.net/cover.jpg',
+      );
+    });
+
+    test('playlistFromPlaylistJson reads nested cover fallbacks', () {
+      final playlist = NeteasePlaylistRepository.playlistFromPlaylistJson({
+        'id': 3,
+        'name': 'Nested Cover',
+        'socialPlaylistCover': {
+          'coverUrl': 'http://p3.music.126.net/nested.jpg',
+        },
+      });
+
+      expect(playlist.coverUrl, 'https://p3.music.126.net/nested.jpg');
+    });
+
     test('tracksFromPlaylistJson maps embedded playlist tracks', () {
       final tracks = NeteasePlaylistRepository.tracksFromPlaylistJson({
         'tracks': [

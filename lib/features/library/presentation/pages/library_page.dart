@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/platform/cover_image_provider.dart';
 import '../../../../data/models/playlist.dart';
+import '../../../../widgets/resilient_cover_image.dart';
+import '../../../../widgets/md3/section_header.dart';
 import '../../../login/application/netease_auth_controller.dart';
 import '../../../playlist/application/netease_playlist_controller.dart';
-import '../../../../widgets/md3/section_header.dart';
 
 enum _PlaylistFilter { all, mine, subscribed }
 
@@ -370,11 +370,18 @@ class _CloudPlaylistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final image = coverImageProvider(playlist.coverUrl);
     final colorScheme = Theme.of(context).colorScheme;
     final trackCount = playlist.trackCount == 0
         ? playlist.tracks.length
         : playlist.trackCount;
+    final fallback = ColoredBox(
+      color: colorScheme.surfaceContainerHighest,
+      child: Icon(
+        Icons.queue_music_rounded,
+        size: 48,
+        color: colorScheme.primary,
+      ),
+    );
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -388,30 +395,10 @@ class _CloudPlaylistCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (image == null)
-                    ColoredBox(
-                      color: colorScheme.surfaceContainerHighest,
-                      child: Icon(
-                        Icons.queue_music_rounded,
-                        size: 48,
-                        color: colorScheme.primary,
-                      ),
-                    )
-                  else
-                    Image(
-                      image: image,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return ColoredBox(
-                          color: colorScheme.surfaceContainerHighest,
-                          child: Icon(
-                            Icons.queue_music_rounded,
-                            size: 48,
-                            color: colorScheme.primary,
-                          ),
-                        );
-                      },
-                    ),
+                  ResilientCoverImage(
+                    coverUrl: playlist.coverUrl,
+                    fallback: fallback,
+                  ),
                   Positioned(
                     right: 8,
                     bottom: 8,

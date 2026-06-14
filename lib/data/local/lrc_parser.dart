@@ -1,4 +1,19 @@
 import '../models/lyric_line.dart';
+import '../models/lyric_source_marker.dart';
+
+enum _LyricSource { main, translation, romanization }
+
+class _ParsedLyricLine {
+  const _ParsedLyricLine({
+    required this.line,
+    required this.order,
+    this.source,
+  });
+
+  final LyricLine line;
+  final int order;
+  final _LyricSource? source;
+}
 
 /// 解析歌词文本。
 ///
@@ -18,11 +33,22 @@ List<LyricLine> parseLrc(String lrcContent) {
     r'^(?<timestamps>(?:\[.+?\])+)(?!\[)(?<content>.+)$',
     multiLine: true,
   );
-  final chinesePattern = RegExp(r'[\u4E00-\u9FFF]');
-  final lyricMap = <int, List<LyricLine>>{};
-  final plainLines = <LyricLine>[];
+  final lyricMap = <int, List<_ParsedLyricLine>>{};
+  final plainLines = <_ParsedLyricLine>[];
+  var currentSource = _LyricSource.main;
+  var order = 0;
 
-  for (final match in extractLinePattern.allMatches(lrcContent.trim())) {
+  for (final rawLine in lrcContent.trim().split('\n')) {
+    final source = _sourceFromMarker(rawLine.trim());
+    if (source != null) {
+      currentSource = source;
+      continue;
+    }
+
+    final match = extractLinePattern.firstMatch(rawLine.trim());
+    if (match == null) {
+      continue;
+    }
     final timestamps = match.namedGroup('timestamps') ?? '';
     final content = match.namedGroup('content')?.trim() ?? '';
     if (content.isEmpty) {
@@ -31,30 +57,63 @@ List<LyricLine> parseLrc(String lrcContent) {
 
     final yrcLine = _parseYrcLine(timestamps, content);
     if (yrcLine != null) {
-      lyricMap.putIfAbsent(yrcLine.start, () => []).add(yrcLine);
+      lyricMap
+          .putIfAbsent(yrcLine.start, () => [])
+          .add(
+            _ParsedLyricLine(
+              line: yrcLine,
+              order: order++,
+              source: currentSource,
+            ),
+          );
       continue;
     }
 
     final wrcLine = _parseWrcLine(timestamps, content);
     if (wrcLine != null) {
-      lyricMap.putIfAbsent(wrcLine.start, () => []).add(wrcLine);
+      lyricMap
+          .putIfAbsent(wrcLine.start, () => [])
+          .add(
+            _ParsedLyricLine(
+              line: wrcLine,
+              order: order++,
+              source: currentSource,
+            ),
+          );
       continue;
     }
 
     for (final start in _parseLrcTimestamps(timestamps)) {
-      plainLines.add(LyricLine(start: start, end: 0, text: content));
+      plainLines.add(
+        _ParsedLyricLine(
+          line: LyricLine(start: start, end: 0, text: content),
+          order: order++,
+          source: currentSource,
+        ),
+      );
     }
   }
 
-  plainLines.sort((a, b) => a.start.compareTo(b.start));
+  plainLines.sort((a, b) {
+    final startCompare = a.line.start.compareTo(b.line.start);
+    return startCompare == 0 ? a.order.compareTo(b.order) : startCompare;
+  });
   for (var index = 0; index < plainLines.length; index++) {
     final current = plainLines[index];
     final line = LyricLine(
-      start: current.start,
-      end: _nextDistinctStart(plainLines, index) ?? current.start + 5000,
-      text: current.text,
+      start: current.line.start,
+      end: _nextDistinctStart(plainLines, index) ?? current.line.start + 5000,
+      text: current.line.text,
     );
-    lyricMap.putIfAbsent(line.start, () => []).add(line);
+    lyricMap
+        .putIfAbsent(line.start, () => [])
+        .add(
+          _ParsedLyricLine(
+            line: line,
+            order: current.order,
+            source: current.source,
+          ),
+        );
   }
 
   final result = <LyricLine>[];
@@ -66,40 +125,94 @@ List<LyricLine> parseLrc(String lrcContent) {
       continue;
     }
 
-    var base = lines.first;
-    for (final candidate in lines.skip(1)) {
-      if (candidate.text.isNotEmpty &&
-          candidate.text != base.text &&
-          (base.translation == null ||
-              chinesePattern.hasMatch(candidate.text))) {
-        base = _copyWithTranslation(base, candidate.text);
-      }
-    }
-    result.add(base);
+    result.add(_mergeSameTimestampLines(lines));
   }
 
   return result;
 }
 
-int? _nextDistinctStart(List<LyricLine> lines, int index) {
-  final currentStart = lines[index].start;
-  for (var nextIndex = index + 1; nextIndex < lines.length; nextIndex++) {
-    final nextStart = lines[nextIndex].start;
-    if (nextStart != currentStart) {
-      return nextStart;
+_LyricSource? _sourceFromMarker(String line) {
+  if (!line.startsWith(lyricSourceMarkerPrefix)) {
+    return null;
+  }
+  return switch (line.substring(lyricSourceMarkerPrefix.length).trim()) {
+    lyricSourceMain => _LyricSource.main,
+    lyricSourceTranslation => _LyricSource.translation,
+    lyricSourceRomanization => _LyricSource.romanization,
+    _ => null,
+  };
+}
+
+LyricLine _mergeSameTimestampLines(List<_ParsedLyricLine> lines) {
+  final main =
+      _firstBySource(lines, _LyricSource.main) ?? _firstNonEmptyLine(lines);
+  if (main == null) {
+    return const LyricLine(start: 0, end: 0, text: '');
+  }
+
+  final translation = _firstTextBySource(lines, _LyricSource.translation);
+  final romanization = _firstTextBySource(lines, _LyricSource.romanization);
+  final inferredTranslation = translation ?? _inferTranslation(lines, main);
+
+  return main.copyWith(
+    translation: _differentText(inferredTranslation, main.text),
+    romanization: _differentText(romanization, main.text),
+  );
+}
+
+LyricLine? _firstBySource(List<_ParsedLyricLine> lines, _LyricSource source) {
+  for (final item in lines) {
+    if (item.source == source && item.line.text.isNotEmpty) {
+      return item.line;
     }
   }
   return null;
 }
 
-LyricLine _copyWithTranslation(LyricLine line, String translation) {
-  return LyricLine(
-    start: line.start,
-    end: line.end,
-    text: line.text,
-    translation: translation,
-    words: line.words,
-  );
+LyricLine? _firstNonEmptyLine(List<_ParsedLyricLine> lines) {
+  for (final item in lines) {
+    if (item.line.text.isNotEmpty) {
+      return item.line;
+    }
+  }
+  return null;
+}
+
+String? _firstTextBySource(List<_ParsedLyricLine> lines, _LyricSource source) {
+  return _firstBySource(lines, source)?.text;
+}
+
+String? _inferTranslation(List<_ParsedLyricLine> lines, LyricLine main) {
+  final chinesePattern = RegExp(r'[\u4E00-\u9FFF]');
+  String? fallback;
+  for (final item in lines) {
+    if (item.source != _LyricSource.main || item.line.text == main.text) {
+      continue;
+    }
+    fallback ??= item.line.text;
+    if (chinesePattern.hasMatch(item.line.text)) {
+      return item.line.text;
+    }
+  }
+  return fallback;
+}
+
+String? _differentText(String? value, String mainText) {
+  if (value == null || value.isEmpty || value == mainText) {
+    return null;
+  }
+  return value;
+}
+
+int? _nextDistinctStart(List<_ParsedLyricLine> lines, int index) {
+  final currentStart = lines[index].line.start;
+  for (var nextIndex = index + 1; nextIndex < lines.length; nextIndex++) {
+    final nextStart = lines[nextIndex].line.start;
+    if (nextStart != currentStart) {
+      return nextStart;
+    }
+  }
+  return null;
 }
 
 LyricLine? _parseYrcLine(String timestamps, String content) {

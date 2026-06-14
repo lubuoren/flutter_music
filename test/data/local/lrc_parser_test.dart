@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_music/data/local/lrc_parser.dart';
+import 'package:flutter_music/data/models/lyric_source_marker.dart';
 
 void main() {
   group('parseLrc', () {
@@ -132,6 +133,25 @@ void main() {
       expect(lines[1].end, 9060);
       expect(lines[2].text, "Let's get, let's get it started…");
       expect(lines[2].translation, '那就让我们开始吧');
+    });
+
+    test('带来源标记时区分原文、翻译和罗马音', () {
+      final lrc = [
+        markLyricSource(lyricSourceMain),
+        '[00:01.00]本当の心',
+        markLyricSource(lyricSourceTranslation),
+        '[00:01.00]真正的内心',
+        markLyricSource(lyricSourceRomanization),
+        '[00:01.00]ho n to no ko ko ro',
+      ].join('\n');
+
+      final lines = parseLrc(lrc);
+
+      expect(lines, hasLength(1));
+      expect(lines.single.text, '本当の心');
+      expect(lines.single.translation, '真正的内心');
+      expect(lines.single.romanization, 'ho n to no ko ko ro');
+      expect(lines.single.hasSecondaryAlternatives, isTrue);
     });
   });
 }
