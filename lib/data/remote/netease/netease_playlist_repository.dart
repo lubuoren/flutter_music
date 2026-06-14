@@ -1,6 +1,7 @@
 import '../../models/playlist.dart';
 import '../../models/track.dart';
 import 'netease_api_client.dart';
+import 'netease_json.dart';
 import 'netease_music_repository.dart';
 
 class NeteasePlaylistRepository {
@@ -84,7 +85,7 @@ class NeteasePlaylistRepository {
   }
 
   static List<Track> dailyTracksFromRecommendJson(Map<String, Object?> json) {
-    final data = _mapValue(json['data']);
+    final data = neteaseMap(json['data']);
     final rawSongs =
         data?['dailySongs'] ?? data?['songs'] ?? json['dailySongs'];
     if (rawSongs is! List) {
@@ -120,7 +121,7 @@ class NeteasePlaylistRepository {
   static Map<String, Object?>? playlistPayloadFromDetailJson(
     Map<String, Object?> json,
   ) {
-    return _mapValue(json['playlist']);
+    return neteaseMap(json['playlist']);
   }
 
   static Playlist playlistFromDetailJson(
@@ -138,19 +139,19 @@ class NeteasePlaylistRepository {
     Map<String, Object?> playlist, {
     List<Track> tracks = const [],
   }) {
-    final creator = _mapValue(playlist['creator']);
-    final trackCount = _intValue(playlist['trackCount']) ?? tracks.length;
+    final creator = neteaseMap(playlist['creator']);
+    final trackCount = neteaseInt(playlist['trackCount']) ?? tracks.length;
     return Playlist(
-      id: _stringValue(playlist['id']) ?? '',
-      name: _stringValue(playlist['name']) ?? '未命名歌单',
-      description: _stringValue(playlist['description']),
+      id: neteaseString(playlist['id']) ?? '',
+      name: neteaseString(playlist['name']) ?? '未命名歌单',
+      description: neteaseString(playlist['description']),
       coverUrl: _coverUrlFromPlaylistJson(playlist),
-      creatorUserId: _stringValue(creator?['userId']),
-      creatorName: _stringValue(creator?['nickname']),
+      creatorUserId: neteaseString(creator?['userId']),
+      creatorName: neteaseString(creator?['nickname']),
       source: 'netease',
       trackCount: trackCount,
       isLocal: false,
-      subscribed: _boolValue(playlist['subscribed']),
+      subscribed: neteaseBool(playlist['subscribed']) ?? false,
       tracks: tracks,
       createdAt: _dateTimeFromMilliseconds(playlist['createTime']),
       updatedAt: _dateTimeFromMilliseconds(playlist['updateTime']),
@@ -182,9 +183,9 @@ class NeteasePlaylistRepository {
     return trackIds
         .map((item) {
           if (item is Map) {
-            return _stringValue(item['id']);
+            return neteaseString(item['id']);
           }
-          return _stringValue(item);
+          return neteaseString(item);
         })
         .whereType<String>()
         .where((id) => id.isNotEmpty)
@@ -209,26 +210,6 @@ class NeteasePlaylistRepository {
       }
     }
     return sortedTracks;
-  }
-
-  static Map<String, Object?>? _mapValue(Object? value) {
-    if (value is! Map) {
-      return null;
-    }
-    return Map<String, Object?>.from(value);
-  }
-
-  static String? _stringValue(Object? value) {
-    if (value == null) {
-      return null;
-    }
-    if (value is String) {
-      return value;
-    }
-    if (value is num) {
-      return value.toString();
-    }
-    return null;
   }
 
   static String? _normalizedImageUrl(String? value) {
@@ -258,7 +239,7 @@ class NeteasePlaylistRepository {
       'backgroundImageUrl',
       'titleImageUrl',
     ]) {
-      final url = _normalizedImageUrl(_stringValue(playlist[key]));
+      final url = _normalizedImageUrl(neteaseString(playlist[key]));
       if (url != null) {
         return url;
       }
@@ -270,7 +251,7 @@ class NeteasePlaylistRepository {
       'coverInfo',
       'resource',
     ]) {
-      final nested = _mapValue(playlist[key]);
+      final nested = neteaseMap(playlist[key]);
       if (nested == null) {
         continue;
       }
@@ -283,34 +264,8 @@ class NeteasePlaylistRepository {
     return null;
   }
 
-  static int? _intValue(Object? value) {
-    if (value is int) {
-      return value;
-    }
-    if (value is num) {
-      return value.toInt();
-    }
-    if (value is String) {
-      return int.tryParse(value);
-    }
-    return null;
-  }
-
-  static bool _boolValue(Object? value) {
-    if (value is bool) {
-      return value;
-    }
-    if (value is num) {
-      return value != 0;
-    }
-    if (value is String) {
-      return value == 'true' || value == '1';
-    }
-    return false;
-  }
-
   static DateTime? _dateTimeFromMilliseconds(Object? value) {
-    final milliseconds = _intValue(value);
+    final milliseconds = neteaseInt(value);
     if (milliseconds == null || milliseconds <= 0) {
       return null;
     }

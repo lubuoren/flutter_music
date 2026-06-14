@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/remote/netease/netease_api_client.dart';
 import '../../../data/remote/netease/netease_auth_repository.dart';
 import '../../settings/application/app_settings_controller.dart';
+import 'secure_cookie_store.dart';
 
 final neteaseAuthControllerProvider =
     StateNotifierProvider<NeteaseAuthController, NeteaseAuthState>((ref) {
@@ -74,6 +75,9 @@ class NeteaseAuthController extends StateNotifier<NeteaseAuthState> {
   static const _cookieKey = 'netease.auth.cookie.v1';
   static const _profileKey = 'netease.auth.profile.v1';
 
+  /// 优先加密存储、密钥环不可用时回退 `shared_preferences` 的 cookie 存储。
+  final SecureCookieStore _cookieStore = SecureCookieStore(key: _cookieKey);
+
   Future<void> load({bool startQrIfLoggedOut = false}) async {
     if (_hasLoaded) {
       if (startQrIfLoggedOut && !state.hasCookie && state.qrImageData == null) {
@@ -83,7 +87,7 @@ class NeteaseAuthController extends StateNotifier<NeteaseAuthState> {
     }
 
     final preferences = await SharedPreferences.getInstance();
-    final cookie = preferences.getString(_cookieKey) ?? '';
+    final cookie = await _cookieStore.read();
     final profile = _profileFromPayload(preferences.getString(_profileKey));
     _hasLoaded = true;
     state = state.copyWith(
@@ -268,14 +272,14 @@ class NeteaseAuthController extends StateNotifier<NeteaseAuthState> {
   }
 
   Future<void> _persistAuth(String cookie, NeteaseProfile profile) async {
+    await _cookieStore.write(cookie);
     final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(_cookieKey, cookie);
     await preferences.setString(_profileKey, jsonEncode(profile.toJson()));
   }
 
   Future<void> _clearPersistedAuth() async {
+    await _cookieStore.delete();
     final preferences = await SharedPreferences.getInstance();
-    await preferences.remove(_cookieKey);
     await preferences.remove(_profileKey);
   }
 

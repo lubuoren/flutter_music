@@ -1,5 +1,6 @@
 import '../../models/netease_comment.dart';
 import 'netease_api_client.dart';
+import 'netease_json.dart';
 
 enum NeteaseCommentSort {
   recommended(1, '推荐'),
@@ -76,9 +77,9 @@ class NeteaseCommentRepository {
     return NeteaseCommentPage(
       comments: comments,
       totalCount:
-          _intValue(source['totalCount'] ?? source['total']) ?? comments.length,
-      hasMore: _boolValue(source['hasMore'] ?? source['more']) ?? false,
-      cursor: _intValue(source['cursor']),
+          neteaseInt(source['totalCount'] ?? source['total']) ?? comments.length,
+      hasMore: neteaseBool(source['hasMore'] ?? source['more']) ?? false,
+      cursor: neteaseInt(source['cursor']),
     );
   }
 
@@ -95,15 +96,15 @@ class NeteaseCommentRepository {
   }
 
   static NeteaseComment _commentFromJson(Map<String, Object?> json) {
-    final timeMs = _intValue(json['time']) ?? 0;
+    final timeMs = neteaseInt(json['time']) ?? 0;
     return NeteaseComment(
-      id: _stringValue(json['commentId']) ?? '',
-      content: _stringValue(json['content']) ?? '该评论已删除',
+      id: neteaseString(json['commentId']) ?? '',
+      content: neteaseString(json['content']) ?? '该评论已删除',
       user: _userFromJson(json['user']),
       time: DateTime.fromMillisecondsSinceEpoch(timeMs),
-      likedCount: _intValue(json['likedCount']) ?? 0,
-      liked: _boolValue(json['liked']) ?? false,
-      replyCount: _intValue(json['replyCount']) ?? 0,
+      likedCount: neteaseInt(json['likedCount']) ?? 0,
+      liked: neteaseBool(json['liked']) ?? false,
+      replyCount: neteaseInt(json['replyCount']) ?? 0,
       ipLocation: _ipLocationFromJson(json['ipLocation']),
       replied: _replyFromJson(json['beReplied'], json['parentCommentId']),
     );
@@ -115,9 +116,9 @@ class NeteaseCommentRepository {
     }
     final json = Map<String, Object?>.from(value);
     return NeteaseCommentUser(
-      id: _stringValue(json['userId']) ?? '',
-      nickname: _stringValue(json['nickname']) ?? '未知用户',
-      avatarUrl: _stringValue(json['avatarUrl']),
+      id: neteaseString(json['userId']) ?? '',
+      nickname: neteaseString(json['nickname']) ?? '未知用户',
+      avatarUrl: neteaseString(json['avatarUrl']),
     );
   }
 
@@ -137,15 +138,15 @@ class NeteaseCommentRepository {
     if (json == null) {
       return null;
     }
-    final commentId = _stringValue(json['beRepliedCommentId']) ?? '';
-    if (commentId.isNotEmpty && commentId == _stringValue(parentCommentId)) {
+    final commentId = neteaseString(json['beRepliedCommentId']) ?? '';
+    if (commentId.isNotEmpty && commentId == neteaseString(parentCommentId)) {
       return null;
     }
     final user = _userFromJson(json['user']);
     return NeteaseCommentReply(
       commentId: commentId,
       nickname: user.nickname,
-      content: _stringValue(json['content']) ?? '该评论已删除',
+      content: neteaseString(json['content']) ?? '该评论已删除',
     );
   }
 
@@ -153,45 +154,6 @@ class NeteaseCommentRepository {
     if (value is! Map) {
       return null;
     }
-    return _stringValue(value['location']);
-  }
-
-  static String? _stringValue(Object? value) {
-    if (value == null) {
-      return null;
-    }
-    if (value is String) {
-      return value;
-    }
-    if (value is num) {
-      return value.toString();
-    }
-    return null;
-  }
-
-  static int? _intValue(Object? value) {
-    if (value is int) {
-      return value;
-    }
-    if (value is num) {
-      return value.toInt();
-    }
-    if (value is String) {
-      return int.tryParse(value);
-    }
-    return null;
-  }
-
-  static bool? _boolValue(Object? value) {
-    if (value is bool) {
-      return value;
-    }
-    if (value is num) {
-      return value != 0;
-    }
-    if (value is String) {
-      return value == 'true' || value == '1';
-    }
-    return null;
+    return neteaseString(value['location']);
   }
 }

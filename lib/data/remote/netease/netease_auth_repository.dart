@@ -1,30 +1,5 @@
 import 'netease_api_client.dart';
-
-String? _stringValue(Object? value) {
-  if (value == null) {
-    return null;
-  }
-  if (value is String) {
-    return value;
-  }
-  if (value is num) {
-    return value.toString();
-  }
-  return null;
-}
-
-int? _intValue(Object? value) {
-  if (value is int) {
-    return value;
-  }
-  if (value is num) {
-    return value.toInt();
-  }
-  if (value is String) {
-    return int.tryParse(value);
-  }
-  return null;
-}
+import 'netease_json.dart';
 
 class NeteaseProfile {
   const NeteaseProfile({
@@ -50,10 +25,10 @@ class NeteaseProfile {
 
   factory NeteaseProfile.fromJson(Map<String, Object?> json) {
     return NeteaseProfile(
-      userId: _stringValue(json['userId']) ?? '',
-      nickname: _stringValue(json['nickname']) ?? '网易云用户',
-      avatarUrl: _stringValue(json['avatarUrl']),
-      signature: _stringValue(json['signature']),
+      userId: neteaseString(json['userId']) ?? '',
+      nickname: neteaseString(json['nickname']) ?? '网易云用户',
+      avatarUrl: neteaseString(json['avatarUrl']),
+      signature: neteaseString(json['signature']),
     );
   }
 }
@@ -162,7 +137,7 @@ class NeteaseAuthRepository {
     if (data is! Map) {
       return null;
     }
-    return _stringValue(data['unikey']);
+    return neteaseString(data['unikey']);
   }
 
   static String? qrImageFromJson(Map<String, Object?> json) {
@@ -170,15 +145,15 @@ class NeteaseAuthRepository {
     if (data is! Map) {
       return null;
     }
-    return _stringValue(data['qrimg']) ?? _stringValue(data['qrurl']);
+    return neteaseString(data['qrimg']) ?? neteaseString(data['qrurl']);
   }
 
   static NeteaseQrCheckResult qrCheckResultFromJson(Map<String, Object?> json) {
-    final code = _intValue(json['code']) ?? 0;
+    final code = neteaseInt(json['code']) ?? 0;
     return NeteaseQrCheckResult(
       code: code,
-      message: _stringValue(json['message']) ?? _messageForQrCode(code),
-      cookie: normalizeCookie(_stringValue(json['cookie']) ?? ''),
+      message: neteaseString(json['message']) ?? _messageForQrCode(code),
+      cookie: normalizeCookie(neteaseString(json['cookie']) ?? ''),
     );
   }
 

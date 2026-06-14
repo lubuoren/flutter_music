@@ -122,6 +122,6 @@
 |---|---|---|---|
 | 本地数据库 | main/db.ts, public/migrations/* | data/local/database | ✅ |
 | 设置持久化 | pinia-plugin-persistedstate | shared_preferences | ✅ |
-| 数据库迁移 | public/migrations/*.sql | data/local/database（onCreate，暂无 onUpgrade） | 🟡 |
+| 数据库迁移 | public/migrations/*.sql | data/local/database（onCreate + onUpgrade 版本化机制） | ✅ |
 
 数据库表结构与迁移脚本说明见 docs/data-model.md。

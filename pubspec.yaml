@@ -37,6 +37,8 @@ dependencies:
   sqflite: ^2.4.1
   sqflite_common_ffi: ^2.3.3+2
   sqflite_common_ffi_web: ^1.1.1
+  # 敏感凭据 at-rest 加密；密钥环不可用时由 SecureCookieStore 回退到 shared_preferences。
+  flutter_secure_storage: ^10.0.0
 
   # UI、网络与桌面增强
   cached_network_image: ^3.4.1

@@ -1,6 +1,7 @@
 import '../../models/lyric_source_marker.dart';
 import '../../models/track.dart';
 import 'netease_api_client.dart';
+import 'netease_json.dart';
 
 class NeteaseMusicRepository {
   const NeteaseMusicRepository({required NeteaseApiClient client})
@@ -243,8 +244,8 @@ class NeteaseMusicRepository {
     Track track,
     Map<String, Object?> item,
   ) {
-    final url = _stringValue(item['url']);
-    final durationMs = _intValue(item['time']);
+    final url = neteaseString(item['url']);
+    final durationMs = neteaseInt(item['time']);
     return track.copyWith(
       url: url,
       durationMs: track.durationMs == 0 ? durationMs : null,
@@ -328,15 +329,15 @@ class NeteaseMusicRepository {
   static Track _trackFromSong(Map<String, Object?> song) {
     final album = _albumFromSong(song);
     final coverUrl = _normalizedImageUrl(
-      _stringValue(album?['picUrl'] ?? album?['blurPicUrl']),
+      neteaseString(album?['picUrl'] ?? album?['blurPicUrl']),
     );
 
     return Track(
-      id: _stringValue(song['id']) ?? '',
-      title: _stringValue(song['name']) ?? '未知歌曲',
+      id: neteaseString(song['id']) ?? '',
+      title: neteaseString(song['name']) ?? '未知歌曲',
       artists: _artistsFromSong(song),
-      album: _stringValue(album?['name']),
-      durationMs: _intValue(song['dt'] ?? song['duration']) ?? 0,
+      album: neteaseString(album?['name']),
+      durationMs: neteaseInt(song['dt'] ?? song['duration']) ?? 0,
       type: TrackType.online,
       source: 'netease',
       coverUrl: coverUrl,
@@ -390,7 +391,7 @@ class NeteaseMusicRepository {
     final itemsById = <String, Map<String, Object?>>{};
     for (final item in items) {
       final mapped = Map<String, Object?>.from(item);
-      final id = _stringValue(mapped['id']);
+      final id = neteaseString(mapped['id']);
       if (id != null && id.isNotEmpty) {
         itemsById[id] = mapped;
       }
@@ -429,7 +430,7 @@ class NeteaseMusicRepository {
     final songsById = <String, Map<String, Object?>>{};
     for (final item in songs.whereType<Map>()) {
       final mapped = Map<String, Object?>.from(item);
-      final id = _stringValue(mapped['id']);
+      final id = neteaseString(mapped['id']);
       if (id != null && id.isNotEmpty) {
         songsById[id] = mapped;
       }
@@ -453,7 +454,7 @@ class NeteaseMusicRepository {
 
     final names = artists
         .whereType<Map>()
-        .map((artist) => _stringValue(artist['name']))
+        .map((artist) => neteaseString(artist['name']))
         .whereType<String>()
         .where((name) => name.isNotEmpty)
         .toList();
@@ -464,7 +465,7 @@ class NeteaseMusicRepository {
     if (value is! Map) {
       return null;
     }
-    return _stringValue(value['lyric']);
+    return neteaseString(value['lyric']);
   }
 
   static String? _normalizedImageUrl(String? value) {
@@ -479,31 +480,5 @@ class NeteaseMusicRepository {
       return trimmed.replaceFirst('http://', 'https://');
     }
     return trimmed;
-  }
-
-  static String? _stringValue(Object? value) {
-    if (value == null) {
-      return null;
-    }
-    if (value is String) {
-      return value;
-    }
-    if (value is num) {
-      return value.toString();
-    }
-    return null;
-  }
-
-  static int? _intValue(Object? value) {
-    if (value is int) {
-      return value;
-    }
-    if (value is num) {
-      return value.toInt();
-    }
-    if (value is String) {
-      return int.tryParse(value);
-    }
-    return null;
   }
 }

@@ -46,7 +46,7 @@ fvm flutter test
 以下事项已在 Phase 3 内完成：
 
 - ✅ 将 `shared_preferences` 媒体库快照迁移到 sqflite 数据库。
-- ✅ 建立首版 schema（数据库 version 1，`_onCreate` 内联建表）；⚠️ 版本化迁移（`onUpgrade`）尚未接入。
+- ✅ 建立首版 schema（数据库 version 1，`_onCreate` 内联建表）并接入 `onUpgrade` 版本化迁移机制（新增 schema 时递增 `databaseVersion` 并在 `_migrations` 登记升级脚本）。
 - ✅ 实现本地歌单创建、编辑、删除、歌曲增删。
 - ✅ 将 LRC 解析接入滚动歌词视图，并按原 VutronMusic Classic 主窗口样式对齐。
 - 🟡 逐字歌词/LDDC 展示（模型已就绪，解析待接入）。
@@ -107,4 +107,4 @@ Phase 3 已完成。后续保留为歌词增强与质量补强：
 | `src/main/workers/scanMusic.ts` | `lib/data/local/` | 本地扫描与元数据读取 |
 | `src/main/appServer/`、`src/renderer/api/` | `lib/data/remote/netease/` | 网易云接口 |
 | `src/main/streaming/` | `lib/features/stream/`（domain 抽象 + 后续 providers 实现） | 流媒体 Provider |
-| `src/public/migrations/` | `lib/data/local/database/migrations/` | 数据库迁移 |
+| `src/public/migrations/` | `lib/data/local/database/app_database.dart`（`_onCreate` + `_migrations` 代码内维护） | 数据库迁移 |

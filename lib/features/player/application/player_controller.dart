@@ -33,6 +33,7 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
       _player.playerStateStream.listen(_onPlayerStateChanged),
       _player.positionStream.listen((position) {
         state = state.copyWith(position: position);
+        _maybeCountPlay(position);
       }),
       _player.bufferedPositionStream.listen((position) {
         state = state.copyWith(bufferedPosition: position);
@@ -44,6 +45,7 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
         );
       }),
       _player.currentIndexStream.listen((index) {
+        _playCounted = false;
         state = state.copyWith(
           currentIndex: index,
           clearCurrentIndex: index == null,
@@ -65,6 +67,12 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
   final List<StreamSubscription<Object?>> _subscriptions = [];
   final Set<String> _loadingLyricsTrackIds = {};
 
+  /// 当前曲目是否已计入播放次数；曲目切换或重新播放队列时重置。
+  bool _playCounted = false;
+
+  /// 计入一次播放所需的最短收听时长（与「曲目时长一半」取较小值）。
+  static const Duration _minPlayThreshold = Duration(seconds: 30);
+
   Future<void> playQueue(List<Track> tracks, {int startIndex = 0}) async {
     final playableTracks = tracks.where(_canPlay).toList();
     if (playableTracks.isEmpty) {
@@ -81,10 +89,10 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
         bufferedPosition: Duration.zero,
         clearError: true,
       );
+      _playCounted = false;
       await _setQueue(playableTracks, startIndex: index);
       _loadLyricsForCurrentTrack();
       await _handler.play();
-      _markCurrentTrackPlayed();
     } on Object catch (error) {
       state = state.copyWith(errorMessage: '播放失败：$error');
     }
@@ -103,7 +111,6 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
       await _handler.pause();
     } else {
       await _handler.play();
-      _markCurrentTrackPlayed();
     }
   }
 
@@ -121,7 +128,6 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
       await _player.seek(Duration.zero, index: 0);
     }
     await _handler.play();
-    _markCurrentTrackPlayed();
   }
 
   Future<void> playPrevious() async {
@@ -138,7 +144,6 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
       await _player.seek(Duration.zero, index: state.queue.length - 1);
     }
     await _handler.play();
-    _markCurrentTrackPlayed();
   }
 
   Future<void> toggleShuffle() async {
@@ -332,9 +337,41 @@ class MusicPlayerController extends StateNotifier<MusicPlayerState> {
     );
   }
 
-  void _markCurrentTrackPlayed() {
+  /// 在收听足够时长后，把当前曲目计入一次播放。
+  ///
+  /// 每个曲目实例最多计一次，由 [_playCounted] 在曲目切换时重置，避免暂停/恢复
+  /// 或快速切歌造成重复计数，同时让自然播完自动进入下一首也能被正确计入。
+  void _maybeCountPlay(Duration position) {
+    if (_playCounted) {
+      return;
+    }
     final track = state.currentTrack;
-    if (track != null && track.type == TrackType.local) {
+    if (track == null) {
+      return;
+    }
+    if (!reachedPlayThreshold(position, state.duration)) {
+      return;
+    }
+    _playCounted = true;
+    _recordPlayed(track);
+  }
+
+  /// 当前 [position] 是否已达到将曲目计入一次播放的阈值。
+  ///
+  /// 阈值取 [_minPlayThreshold] 与「[duration] 一半」中的较小值；时长未知时
+  /// 退回 [_minPlayThreshold]。提取为静态纯函数以便单测。
+  static bool reachedPlayThreshold(Duration position, Duration? duration) {
+    final halfDuration = duration == null
+        ? null
+        : Duration(milliseconds: duration.inMilliseconds ~/ 2);
+    final threshold = halfDuration == null || halfDuration > _minPlayThreshold
+        ? _minPlayThreshold
+        : halfDuration;
+    return position >= threshold;
+  }
+
+  void _recordPlayed(Track track) {
+    if (track.type == TrackType.local) {
       unawaited(
         _ref.read(localMusicControllerProvider.notifier).markPlayed(track),
       );

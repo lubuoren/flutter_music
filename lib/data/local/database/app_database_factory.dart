@@ -5,6 +5,10 @@ import 'app_database_factory_stub.dart'
     if (dart.library.js_interop) 'app_database_factory_web.dart'
     as impl;
 
-Future<Database> openAppDatabase(OnDatabaseCreateFn onCreate) {
-  return impl.openAppDatabase(onCreate);
+Future<Database> openAppDatabase(
+  OnDatabaseCreateFn onCreate, {
+  required int version,
+  OnDatabaseVersionChangeFn? onUpgrade,
+}) {
+  return impl.openAppDatabase(onCreate, version: version, onUpgrade: onUpgrade);
 }

@@ -25,7 +25,11 @@ class AppDatabase {
   }
 
   Future<Database> _initDatabase() async {
-    return openAppDatabase(_onCreate);
+    return openAppDatabase(
+      _onCreate,
+      version: databaseVersion,
+      onUpgrade: _onUpgrade,
+    );
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -85,7 +89,47 @@ CREATE TABLE app_data (
   value TEXT NOT NULL
 );
 ''';
-    for (final statement in migration.split(';')) {
+    await _executeScript(db, migration);
+  }
+
+  /// 当前数据库版本。新增表/列时递增 [databaseVersion]，并在 [_migrations]
+  /// 登记对应版本的升级脚本。
+  static const int databaseVersion = 1;
+
+  /// 版本化迁移脚本：键为目标版本，值为「从上一版本升级到该版本」需执行的 SQL。
+  ///
+  /// version 1 的建表由 [_onCreate] 完成，无需迁移条目；新增 schema 时递增
+  /// [databaseVersion] 并在此登记，例如：
+  /// `2: 'ALTER TABLE tracks ADD COLUMN foo TEXT;'`。
+  static const Map<int, String> _migrations = {};
+
+  /// 按版本顺序返回从 [oldVersion] 升级到 [newVersion] 需执行的迁移脚本。
+  ///
+  /// 提取为静态纯函数以便单测。
+  static List<String> migrationScriptsFor(
+    int oldVersion,
+    int newVersion, {
+    Map<int, String> migrations = _migrations,
+  }) {
+    final scripts = <String>[];
+    for (var version = oldVersion + 1; version <= newVersion; version++) {
+      final script = migrations[version];
+      if (script != null) {
+        scripts.add(script);
+      }
+    }
+    return scripts;
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    for (final script in migrationScriptsFor(oldVersion, newVersion)) {
+      await _executeScript(db, script);
+    }
+  }
+
+  /// 执行多语句 SQL 脚本（以 `;` 分隔），跳过空语句。
+  static Future<void> _executeScript(Database db, String script) async {
+    for (final statement in script.split(';')) {
       final trimmed = statement.trim();
       if (trimmed.isNotEmpty) {
         await db.execute(trimmed);

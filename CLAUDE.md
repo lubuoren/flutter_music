@@ -32,7 +32,7 @@ fvm flutter run -d linux
 | 媒体会话 | audio_service |
 | 主题 | Flutter Material 3 + m3e_design + material_new_shapes |
 | 本地扫描 | file_picker + permission_handler + audio_metadata_reader |
-| 持久化 | shared_preferences (临时, 后续迁移到 sqflite/drift) |
+| 持久化 | sqflite (媒体库/歌单/历史) + shared_preferences (设置) + flutter_secure_storage (登录凭据) |
 | 网络 | dio |
 | 桌面 | window_manager |
 
@@ -91,6 +91,7 @@ main.dart 初始化 MusicAudioHandler → 注入 Riverpod
 - **下一阶段**：Phase 4 — 网易云在线音乐能力迁移（登录、搜索、歌单、专辑、艺术家、评论、MV、每日推荐等）。
 - **待补项**：逐字歌词（LDDC）展示、更多单元测试覆盖。
 - **暂缓接入**：`tray_manager`（其 Linux 原生实现使用已弃用的 `app_indicator_new`，在 `-Werror` 下会导致构建失败），留待 Phase 7。
+- **Linux 构建依赖**：`flutter_secure_storage` 需系统 `libsecret`（Arch：`libsecret`；Debian：`libsecret-1-dev`），且必须用 `^10`——9.x 的 Linux 实现内置旧版 `json.hpp`，在 `-Werror,-Wdeprecated-literal-operator` 下会构建失败（与 tray_manager 同类问题）。运行时无密钥环（gnome-keyring/kwallet）则由 `SecureCookieStore` 自动回退 `shared_preferences`。
 - 路由映射和迁移路径以 `docs/architecture.md` 和 `docs/project-plan.md` 为准。
 
 ## 参考文档

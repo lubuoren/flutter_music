@@ -4,7 +4,11 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-Future<Database> openAppDatabase(OnDatabaseCreateFn onCreate) async {
+Future<Database> openAppDatabase(
+  OnDatabaseCreateFn onCreate, {
+  required int version,
+  OnDatabaseVersionChangeFn? onUpgrade,
+}) async {
   if (Platform.isLinux || Platform.isWindows) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
@@ -15,5 +19,10 @@ Future<Database> openAppDatabase(OnDatabaseCreateFn onCreate) async {
   await dbDir.create(recursive: true);
   final dbPath = p.join(dbDir.path, 'vutronmusic.db');
 
-  return openDatabase(dbPath, version: 1, onCreate: onCreate);
+  return openDatabase(
+    dbPath,
+    version: version,
+    onCreate: onCreate,
+    onUpgrade: onUpgrade,
+  );
 }
