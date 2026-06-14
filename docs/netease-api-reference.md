@@ -42,7 +42,7 @@ lib/data/remote/netease/
 当前已实现：
 
 - `NeteaseApiClient`：Base URL、超时、Cookie/代理/realIP 通用参数、错误包装。
-- `NeteaseAuthRepository`：二维码 key/图片、扫码状态轮询、Cookie 规范化、登录态校验、退出登录。
+- `NeteaseAuthRepository`：二维码 key/图片、扫码状态轮询、Cookie 规范化、手机号/邮箱密码登录（`/login/cellphone`、`/login`，密码 MD5 后经 HTTPS 发送）、登录态校验、退出登录。
 - `NeteaseMusicRepository.searchTracks`：调用 `/search` 并映射统一 `Track`。
 - `NeteaseMusicRepository.tracksWithRemoteDetails`：搜索后批量调用 `/song/detail`，补齐结果列表封面与详情。
 - `NeteaseMusicRepository.resolvePlaybackUrl`：调用 `/song/url`，将搜索结果补齐为可播放 `Track.url`。
@@ -55,9 +55,8 @@ lib/data/remote/netease/
 
 下一步顺序：
 
-1. 手机号/邮箱登录；
-2. 专辑、艺术家详情；
-3. 私人 FM、评论写操作和 MV。
+1. 专辑、艺术家详情；
+2. 私人 FM、评论写操作和 MV。
 
 ## auth.ts 登录与账号
 

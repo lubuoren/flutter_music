@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../application/netease_auth_controller.dart';
 
-enum _LoginMode { qrCode, cookie }
+enum _LoginMode { qrCode, password, cookie }
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -18,6 +18,8 @@ class LoginPage extends ConsumerStatefulWidget {
 
 class _LoginPageState extends ConsumerState<LoginPage> {
   final TextEditingController _cookieController = TextEditingController();
+  final TextEditingController _accountController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   _LoginMode _mode = _LoginMode.qrCode;
 
   @override
@@ -33,6 +35,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   void dispose() {
     _cookieController.dispose();
+    _accountController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -81,6 +85,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   label: Text('二维码'),
                 ),
                 ButtonSegment(
+                  value: _LoginMode.password,
+                  icon: Icon(Icons.password_rounded),
+                  label: Text('密码'),
+                ),
+                ButtonSegment(
                   value: _LoginMode.cookie,
                   icon: Icon(Icons.cookie_rounded),
                   label: Text('Cookie'),
@@ -99,6 +108,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             const SizedBox(height: 16),
             if (_mode == _LoginMode.qrCode)
               _QrLoginPanel(state: state, onRefresh: controller.startQrLogin)
+            else if (_mode == _LoginMode.password)
+              _PasswordLoginPanel(
+                accountController: _accountController,
+                passwordController: _passwordController,
+                isLoading: state.isLoading,
+                onSubmit: () {
+                  final account = _accountController.text.trim();
+                  final password = _passwordController.text;
+                  if (account.contains('@')) {
+                    controller.loginWithEmail(account, password);
+                  } else {
+                    controller.loginWithPhone(account, password);
+                  }
+                },
+              )
             else
               _CookieLoginPanel(
                 controller: _cookieController,
@@ -297,6 +321,94 @@ class _CookieLoginPanel extends StatelessWidget {
                     )
                   : const Icon(Icons.login_rounded),
               label: const Text('导入并校验'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PasswordLoginPanel extends StatefulWidget {
+  const _PasswordLoginPanel({
+    required this.accountController,
+    required this.passwordController,
+    required this.isLoading,
+    required this.onSubmit,
+  });
+
+  final TextEditingController accountController;
+  final TextEditingController passwordController;
+  final bool isLoading;
+  final VoidCallback onSubmit;
+
+  @override
+  State<_PasswordLoginPanel> createState() => _PasswordLoginPanelState();
+}
+
+class _PasswordLoginPanelState extends State<_PasswordLoginPanel> {
+  bool _obscure = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: widget.accountController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: '手机号或邮箱',
+                hintText: '13800138000 或 you@example.com',
+                prefixIcon: Icon(Icons.account_circle_rounded),
+              ),
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: widget.passwordController,
+              obscureText: _obscure,
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                labelText: '密码',
+                prefixIcon: const Icon(Icons.lock_rounded),
+                suffixIcon: IconButton(
+                  tooltip: _obscure ? '显示密码' : '隐藏密码',
+                  icon: Icon(
+                    _obscure
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
+                  ),
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                ),
+              ),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (!widget.isLoading) {
+                  widget.onSubmit();
+                }
+              },
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '账号含 @ 视为邮箱登录，否则按手机号登录。密码经 MD5 后通过 HTTPS '
+              '发送，仅用于换取登录态，不在本地保存。',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: widget.isLoading ? null : widget.onSubmit,
+              icon: widget.isLoading
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.login_rounded),
+              label: const Text('登录'),
             ),
           ],
         ),

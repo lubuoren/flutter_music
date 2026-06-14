@@ -11,7 +11,7 @@
 
 1. Phase 3 UI 与本地音乐主流程已完成：首页、本地音乐页、设置页、播放页、播放栏、队列页、本地歌单 CRUD、数据库迁移均已接入。
 2. Phase 4 已接入网易云歌曲搜索、`/song/url` 播放地址解析、云端封面、云端歌词、云端歌词 offset、云端歌单列表/详情、评论只读列表和 Web 客户端基础支持，搜索结果与歌单歌曲可直接进入播放器。
-3. 后续 Phase 4 优先补手机号/邮箱登录、专辑/艺术家详情、每日推荐、评论写操作和 MV。
+3. 后续 Phase 4 优先补专辑/艺术家详情、评论写操作和 MV。
 
 ## 1. 应用框架与导航
 
@@ -75,7 +75,7 @@
 
 | 功能 | 原项目 | Flutter 目标 | 状态 |
 |---|---|---|---|
-| 登录（二维码/手机/邮箱） | api/auth.ts, views/LoginAccount.vue | features/login | 🟡 二维码/Cookie 登录态已接入，手机/邮箱待补 |
+| 登录（二维码/手机/邮箱） | api/auth.ts, views/LoginAccount.vue | features/login | ✅ 二维码/Cookie/手机号/邮箱密码登录已接入，短信验证码登录待补 |
 | 搜索 | api/other.ts, views/SearchPage.vue | features/search | 🟡 歌曲搜索与播放已接入，其他搜索类型待补 |
 | 歌曲播放 URL | api/other.ts /song/url, store/player.ts | data/remote/netease + features/search | ✅ |
 | 云端歌曲封面 | api/track.ts /song/detail, player.ts getPic | data/remote/netease + player UI | ✅ |

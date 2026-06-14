@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:flutter_music/data/remote/netease/netease_api_client.dart';
 import 'package:flutter_music/data/remote/netease/netease_auth_repository.dart';
 
 void main() {
@@ -43,6 +44,41 @@ void main() {
       expect(status.profile?.nickname, 'User');
       expect(status.profile?.avatarUrl, 'https://avatar');
       expect(status.profile?.signature, 'hello');
+    });
+
+    test('cookieFromLoginJson 成功响应返回规范化 cookie', () {
+      final cookie = NeteaseAuthRepository.cookieFromLoginJson({
+        'code': 200,
+        'cookie': 'MUSIC_U=abc; Path=/; HTTPOnly;; __csrf=xyz',
+      });
+
+      expect(cookie, 'MUSIC_U=abc; __csrf=xyz');
+    });
+
+    test('cookieFromLoginJson 非 200 抛出带网易云提示的异常', () {
+      expect(
+        () => NeteaseAuthRepository.cookieFromLoginJson({
+          'code': 502,
+          'message': '密码错误',
+        }),
+        throwsA(
+          isA<NeteaseApiException>().having(
+            (e) => e.message,
+            'message',
+            '密码错误',
+          ),
+        ),
+      );
+    });
+
+    test('cookieFromLoginJson cookie 为空也抛出异常', () {
+      expect(
+        () => NeteaseAuthRepository.cookieFromLoginJson({
+          'code': 200,
+          'cookie': '',
+        }),
+        throwsA(isA<NeteaseApiException>()),
+      );
     });
   });
 }

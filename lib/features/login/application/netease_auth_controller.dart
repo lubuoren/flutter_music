@@ -158,6 +158,46 @@ class NeteaseAuthController extends StateNotifier<NeteaseAuthState> {
     }
   }
 
+  Future<void> loginWithPhone(String phone, String password) async {
+    await _loginWithPassword(
+      account: phone,
+      password: password,
+      requestCookie: () =>
+          _repository().loginWithPhone(phone: phone.trim(), password: password),
+    );
+  }
+
+  Future<void> loginWithEmail(String email, String password) async {
+    await _loginWithPassword(
+      account: email,
+      password: password,
+      requestCookie: () =>
+          _repository().loginWithEmail(email: email.trim(), password: password),
+    );
+  }
+
+  Future<void> _loginWithPassword({
+    required String account,
+    required String password,
+    required Future<String> Function() requestCookie,
+  }) async {
+    if (account.trim().isEmpty || password.isEmpty) {
+      state = state.copyWith(errorMessage: '请输入账号和密码');
+      return;
+    }
+    _cancelQrTimer();
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final cookie = await requestCookie();
+      await _applyCookie(cookie);
+      state = state.copyWith(isLoading: false);
+    } on NeteaseApiException catch (error) {
+      state = state.copyWith(isLoading: false, errorMessage: error.message);
+    } on Object catch (error) {
+      state = state.copyWith(isLoading: false, errorMessage: '登录失败：$error');
+    }
+  }
+
   Future<void> refreshLoginStatus() async {
     final cookie = state.cookie;
     if (cookie.isEmpty) {

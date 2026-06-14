@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 import 'netease_api_client.dart';
 import 'netease_json.dart';
 
@@ -132,6 +136,38 @@ class NeteaseAuthRepository {
     await _client.postJson('/logout');
   }
 
+  /// 手机号 + 密码登录，返回规范化后的 cookie。
+  Future<String> loginWithPhone({
+    required String phone,
+    required String password,
+    String? countryCode,
+  }) async {
+    final json = await _client.postJson(
+      '/login/cellphone',
+      queryParameters: {'timestamp': DateTime.now().millisecondsSinceEpoch},
+      data: {
+        'phone': phone,
+        'md5_password': _md5Password(password),
+        if (countryCode != null && countryCode.isNotEmpty)
+          'countrycode': countryCode,
+      },
+    );
+    return cookieFromLoginJson(json);
+  }
+
+  /// 邮箱 + 密码登录，返回规范化后的 cookie。
+  Future<String> loginWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    final json = await _client.postJson(
+      '/login',
+      queryParameters: {'timestamp': DateTime.now().millisecondsSinceEpoch},
+      data: {'email': email, 'md5_password': _md5Password(password)},
+    );
+    return cookieFromLoginJson(json);
+  }
+
   static String? qrKeyFromJson(Map<String, Object?> json) {
     final data = json['data'];
     if (data is! Map) {
@@ -156,6 +192,25 @@ class NeteaseAuthRepository {
       cookie: normalizeCookie(neteaseString(json['cookie']) ?? ''),
     );
   }
+
+  /// 从密码登录响应中提取 cookie；失败时抛出带网易云提示信息的异常。
+  static String cookieFromLoginJson(Map<String, Object?> json) {
+    final code = neteaseInt(json['code']) ?? 0;
+    final cookie = normalizeCookie(neteaseString(json['cookie']) ?? '');
+    if (code != 200 || cookie.isEmpty) {
+      throw NeteaseApiException(
+        message:
+            neteaseString(json['message']) ??
+            neteaseString(json['msg']) ??
+            '登录失败（code $code）',
+        responseCode: code,
+      );
+    }
+    return cookie;
+  }
+
+  static String _md5Password(String password) =>
+      md5.convert(utf8.encode(password)).toString();
 
   static NeteaseLoginStatus loginStatusFromJson(Map<String, Object?> json) {
     final data = json['data'];

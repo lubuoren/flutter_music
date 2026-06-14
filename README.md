@@ -98,12 +98,12 @@ darkTheme: ColorScheme.fromSeed(
 - ✅ 设置页新增 Netease API Base URL，默认 `https://12900hx-es.tail8bbb9b.ts.net:3000/`；
 - ✅ 搜索页接入网易云歌曲搜索并映射为统一 `Track` 模型，搜索结果会批量请求 `/song/detail` 补齐封面；
 - ✅ 搜索结果可通过 `/song/url` 解析播放地址并加入播放器播放；
-- ✅ 二维码登录、Cookie 导入、登录态校验与退出登录基础闭环；
+- ✅ 二维码登录、Cookie 导入、手机号/邮箱密码登录、登录态校验与退出登录基础闭环；
 - ✅ 在线歌曲播放前补齐 `/song/detail` 云端封面与 `/lyric/new` 云端歌词；
 - ✅ 云端歌曲歌词 offset 可在播放器内调整并持久化；
 - ✅ Web 客户端基础支持：Web SQLite 资产、平台封面/播放适配、浏览器端云端播放入口；
 - ✅ 每日推荐：`/recommend/songs` 歌曲列表（首页入口 → `/daily/songs`），复用歌单播放链路；
-- 🟡 待接入：手机号/邮箱登录、专辑/艺术家、评论写操作、MV、推荐歌单。
+- 🟡 待接入：专辑/艺术家、评论写操作、MV、推荐歌单。
 
 网易云服务准备：
 
