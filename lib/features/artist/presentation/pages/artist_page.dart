@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../common/presentation/pages/feature_placeholder_page.dart';
+import '../../../playlist/presentation/widgets/netease_collection_view.dart';
 
 class ArtistPage extends StatelessWidget {
   const ArtistPage({super.key, required this.artistId});
@@ -9,16 +9,17 @@ class ArtistPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FeaturePlaceholderPage(
-      title: '艺术家',
-      features: const [
-        '艺术家详情、热门歌曲',
-        '艺术家专辑列表',
-        '艺术家 MV 列表',
-        '相似艺术家',
-        '关注/取消关注艺术家',
-        '艺术家排行榜',
-      ],
+    final id = artistId?.trim() ?? '';
+    if (id.isEmpty) {
+      return const Scaffold(body: Center(child: Text('缺少艺术家 ID')));
+    }
+    return NeteaseCollectionView(
+      collectionId: 'artist:$id',
+      fallbackTitle: '艺术家',
+      emptyIcon: Icons.person_rounded,
+      emptyTitle: '暂无热门歌曲',
+      emptySubtitle: '该艺术家没有可显示的热门歌曲',
+      subtitleBuilder: (playlist) => '热门歌曲 · ${playlist.tracks.length} 首',
     );
   }
 }

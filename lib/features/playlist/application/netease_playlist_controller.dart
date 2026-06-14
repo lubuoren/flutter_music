@@ -181,9 +181,17 @@ class NeteasePlaylistDetailController
       return;
     }
     try {
-      final playlist = isDailyRecommend
-          ? await _playlistRepository().fetchDailyRecommendTracks()
-          : await _playlistRepository().fetchPlaylistDetail(playlistId);
+      final repository = _playlistRepository();
+      final Playlist playlist;
+      if (isDailyRecommend) {
+        playlist = await repository.fetchDailyRecommendTracks();
+      } else if (playlistId.startsWith('album:')) {
+        playlist = await repository.fetchAlbum(playlistId.substring(6));
+      } else if (playlistId.startsWith('artist:')) {
+        playlist = await repository.fetchArtist(playlistId.substring(7));
+      } else {
+        playlist = await repository.fetchPlaylistDetail(playlistId);
+      }
       final tracks = await _ref
           .read(lyricOffsetRepositoryProvider)
           .applyOffsets(playlist.tracks);

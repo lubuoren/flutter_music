@@ -18,6 +18,8 @@ class Track {
     required this.title,
     required this.artists,
     this.album,
+    this.albumId,
+    this.artistIds = const [],
     this.durationMs = 0,
     this.type = TrackType.online,
     this.source,
@@ -40,6 +42,12 @@ class Track {
   final String title;
   final List<String> artists;
   final String? album;
+
+  /// 网易云专辑 id，用于从歌曲跳转到专辑详情。
+  final String? albumId;
+
+  /// 网易云艺术家 id 列表，用于从歌曲跳转到艺术家详情。
+  final List<String> artistIds;
 
   /// 时长，毫秒。对应原项目 dt / duration 字段。
   final int durationMs;
@@ -77,6 +85,8 @@ class Track {
     String? title,
     List<String>? artists,
     String? album,
+    String? albumId,
+    List<String>? artistIds,
     int? durationMs,
     TrackType? type,
     String? source,
@@ -99,6 +109,8 @@ class Track {
       title: title ?? this.title,
       artists: artists ?? this.artists,
       album: album ?? this.album,
+      albumId: albumId ?? this.albumId,
+      artistIds: artistIds ?? this.artistIds,
       durationMs: durationMs ?? this.durationMs,
       type: type ?? this.type,
       source: source ?? this.source,
@@ -124,6 +136,8 @@ class Track {
       'title': title,
       'artists': artists,
       'album': album,
+      'albumId': albumId,
+      'artistIds': artistIds,
       'durationMs': durationMs,
       'type': type.name,
       'source': source,
@@ -153,6 +167,10 @@ class Track {
           ? artists.whereType<String>().toList()
           : const ['未知艺术家'],
       album: json['album'] as String?,
+      albumId: json['albumId'] as String?,
+      artistIds:
+          (json['artistIds'] as List?)?.whereType<String>().toList() ??
+          const [],
       durationMs: json['durationMs'] as int? ?? 0,
       type: trackTypeFromName(json['type'] as String?),
       source: json['source'] as String?,

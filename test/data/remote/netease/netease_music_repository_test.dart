@@ -217,5 +217,23 @@ void main() {
         ].join('\n'),
       );
     });
+
+    test('trackFromSongJson maps album and artist ids', () {
+      final track = NeteaseMusicRepository.trackFromSongJson({
+        'id': 100,
+        'name': 'Song',
+        'ar': [
+          {'id': 11, 'name': 'A'},
+          {'id': 22, 'name': 'B'},
+        ],
+        'al': {'id': 55, 'name': 'Album', 'picUrl': 'http://p/c.jpg'},
+      });
+
+      expect(track.id, '100');
+      expect(track.albumId, '55');
+      expect(track.artistIds, ['11', '22']);
+      expect(track.artists, ['A', 'B']);
+      expect(track.coverUrl, 'https://p/c.jpg');
+    });
   });
 }

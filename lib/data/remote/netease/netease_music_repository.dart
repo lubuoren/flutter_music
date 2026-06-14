@@ -336,7 +336,9 @@ class NeteaseMusicRepository {
       id: neteaseString(song['id']) ?? '',
       title: neteaseString(song['name']) ?? '未知歌曲',
       artists: _artistsFromSong(song),
+      artistIds: _artistIdsFromSong(song),
       album: neteaseString(album?['name']),
+      albumId: neteaseString(album?['id']),
       durationMs: neteaseInt(song['dt'] ?? song['duration']) ?? 0,
       type: TrackType.online,
       source: 'netease',
@@ -352,7 +354,11 @@ class NeteaseMusicRepository {
     return track.copyWith(
       title: detailedTrack.title,
       artists: detailedTrack.artists,
+      artistIds: detailedTrack.artistIds.isEmpty
+          ? track.artistIds
+          : detailedTrack.artistIds,
       album: detailedTrack.album,
+      albumId: detailedTrack.albumId ?? track.albumId,
       durationMs: track.durationMs == 0
           ? detailedTrack.durationMs
           : track.durationMs,
@@ -459,6 +465,19 @@ class NeteaseMusicRepository {
         .where((name) => name.isNotEmpty)
         .toList();
     return names.isEmpty ? const ['未知艺术家'] : names;
+  }
+
+  static List<String> _artistIdsFromSong(Map<String, Object?> song) {
+    final artists = song['ar'] ?? song['artists'];
+    if (artists is! List) {
+      return const [];
+    }
+    return artists
+        .whereType<Map>()
+        .map((artist) => neteaseString(artist['id']))
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toList();
   }
 
   static String? _lyricText(Object? value) {

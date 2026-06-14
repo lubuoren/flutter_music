@@ -169,5 +169,76 @@ void main() {
         isEmpty,
       );
     });
+
+    test('albumFromJson maps album metadata, artist and songs', () {
+      final playlist = NeteasePlaylistRepository.albumFromJson('789', {
+        'album': {
+          'id': 789,
+          'name': 'Test Album',
+          'description': 'desc',
+          'picUrl': 'http://p1.music.126.net/album.jpg',
+          'artist': {'id': 42, 'name': 'Album Artist'},
+        },
+        'songs': [
+          {
+            'id': 1,
+            'name': 'Song 1',
+            'ar': [
+              {'id': 42, 'name': 'Album Artist'},
+            ],
+            'al': {'id': 789, 'name': 'Test Album', 'picUrl': 'https://c'},
+          },
+        ],
+      });
+
+      expect(playlist.id, 'album:789');
+      expect(playlist.name, 'Test Album');
+      expect(playlist.description, 'desc');
+      // 封面 http 应被归一化为 https。
+      expect(playlist.coverUrl, 'https://p1.music.126.net/album.jpg');
+      expect(playlist.creatorUserId, '42');
+      expect(playlist.creatorName, 'Album Artist');
+      expect(playlist.source, 'netease');
+      expect(playlist.tracks, hasLength(1));
+      expect(playlist.tracks.single.title, 'Song 1');
+      expect(playlist.tracks.single.albumId, '789');
+    });
+
+    test('artistFromJson maps artist info and hot songs', () {
+      final playlist = NeteasePlaylistRepository.artistFromJson('42', {
+        'artist': {
+          'id': 42,
+          'name': 'Hot Artist',
+          'briefDesc': 'bio',
+          'picUrl': 'http://p1.music.126.net/artist.jpg',
+        },
+        'hotSongs': [
+          {
+            'id': 2,
+            'name': 'Hit',
+            'ar': [
+              {'id': 42, 'name': 'Hot Artist'},
+            ],
+            'al': {'id': 9, 'name': 'Al', 'picUrl': 'https://c'},
+          },
+        ],
+      });
+
+      expect(playlist.id, 'artist:42');
+      expect(playlist.name, 'Hot Artist');
+      expect(playlist.description, 'bio');
+      expect(playlist.coverUrl, 'https://p1.music.126.net/artist.jpg');
+      expect(playlist.creatorUserId, '42');
+      expect(playlist.tracks, hasLength(1));
+      expect(playlist.tracks.single.title, 'Hit');
+      expect(playlist.tracks.single.artistIds, ['42']);
+    });
+
+    test('albumFromJson tolerates missing album/songs', () {
+      final playlist = NeteasePlaylistRepository.albumFromJson('1', {});
+      expect(playlist.id, 'album:1');
+      expect(playlist.name, '未知专辑');
+      expect(playlist.tracks, isEmpty);
+    });
   });
 }

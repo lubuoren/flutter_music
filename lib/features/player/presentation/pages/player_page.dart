@@ -77,6 +77,44 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                       ? null
                       : () => context.push('/comments/track/${track.id}'),
                 ),
+                if (track != null &&
+                    ((track.albumId?.isNotEmpty ?? false) ||
+                        track.artistIds.isNotEmpty))
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert_rounded),
+                    tooltip: '更多',
+                    onSelected: (value) {
+                      final albumId = track.albumId;
+                      final artistIds = track.artistIds;
+                      if (value == 'album' &&
+                          albumId != null &&
+                          albumId.isNotEmpty) {
+                        context.push('/album/$albumId');
+                      } else if (value == 'artist' && artistIds.isNotEmpty) {
+                        context.push('/artist/${artistIds.first}');
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      if (track.albumId?.isNotEmpty ?? false)
+                        const PopupMenuItem(
+                          value: 'album',
+                          child: ListTile(
+                            leading: Icon(Icons.album_rounded),
+                            title: Text('查看专辑'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      if (track.artistIds.isNotEmpty)
+                        const PopupMenuItem(
+                          value: 'artist',
+                          child: ListTile(
+                            leading: Icon(Icons.person_rounded),
+                            title: Text('查看歌手'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                    ],
+                  ),
               ],
             ),
             body: Stack(

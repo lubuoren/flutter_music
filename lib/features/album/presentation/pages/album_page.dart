@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../common/presentation/pages/feature_placeholder_page.dart';
+import '../../../playlist/presentation/widgets/netease_collection_view.dart';
 
 class AlbumPage extends StatelessWidget {
   const AlbumPage({super.key, required this.albumId});
@@ -9,15 +9,22 @@ class AlbumPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FeaturePlaceholderPage(
-      title: '专辑',
-      features: const [
-        '专辑详情、封面、艺术家',
-        '专辑歌曲列表与播放',
-        '专辑动态信息（收藏数、评论数、分享数）',
-        '收藏/取消收藏专辑',
-        '新碟上架、全部新碟',
-      ],
+    final id = albumId?.trim() ?? '';
+    if (id.isEmpty) {
+      return const Scaffold(body: Center(child: Text('缺少专辑 ID')));
+    }
+    return NeteaseCollectionView(
+      collectionId: 'album:$id',
+      fallbackTitle: '专辑',
+      emptyIcon: Icons.album_rounded,
+      emptyTitle: '暂无歌曲',
+      emptySubtitle: '该专辑没有可显示的歌曲',
+      showArtistLink: true,
+      subtitleBuilder: (playlist) {
+        final artist = playlist.creatorName;
+        final count = '${playlist.tracks.length} 首';
+        return artist == null || artist.isEmpty ? count : '$artist · $count';
+      },
     );
   }
 }

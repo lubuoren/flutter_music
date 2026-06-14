@@ -51,12 +51,12 @@ lib/data/remote/netease/
 - `NeteaseMusicRepository.tracksWithPlaybackUrls`：批量调用 `/song/url`，为歌单播放队列补齐播放地址。
 - `NeteasePlaylistRepository`：调用 `/user/playlist` 和 `/playlist/detail`，映射统一 `Playlist`，并在详情 `tracks` 不完整时按 `trackIds` 补齐。
 - `NeteasePlaylistRepository.fetchDailyRecommendTracks`：调用 `/recommend/songs`，映射「每日推荐」歌曲并复用歌单播放链路（首页 → `/daily/songs`）。
+- `NeteasePlaylistRepository.fetchAlbum` / `fetchArtist`：调用 `/album`、`/artists`，将专辑歌曲、艺术家热门歌曲映射为统一 `Playlist`（id 形如 `album:<id>` / `artist:<id>`），复用歌单播放链路；`Track` 携带 `albumId` / `artistIds`，播放页「更多」菜单可从歌曲跳转专辑/歌手。
 - `LyricOffsetRepository`：为网易云等云端歌曲保存播放器内调整的歌词 offset。
 
 下一步顺序：
 
-1. 专辑、艺术家详情；
-2. 私人 FM、评论写操作和 MV。
+1. 私人 FM、评论写操作和 MV。
 
 ## auth.ts 登录与账号
 

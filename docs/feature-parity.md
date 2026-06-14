@@ -11,7 +11,7 @@
 
 1. Phase 3 UI 与本地音乐主流程已完成：首页、本地音乐页、设置页、播放页、播放栏、队列页、本地歌单 CRUD、数据库迁移均已接入。
 2. Phase 4 已接入网易云歌曲搜索、`/song/url` 播放地址解析、云端封面、云端歌词、云端歌词 offset、云端歌单列表/详情、评论只读列表和 Web 客户端基础支持，搜索结果与歌单歌曲可直接进入播放器。
-3. 后续 Phase 4 优先补专辑/艺术家详情、评论写操作和 MV。
+3. 后续 Phase 4 优先补评论写操作、私人 FM 和 MV。
 
 ## 1. 应用框架与导航
 
@@ -82,8 +82,8 @@
 | 云端歌词 | api/track.ts /lyric/new, store/player.ts getLyric | data/remote/netease + player lyrics | ✅ |
 | Web 客户端云端播放 | Electron 桌面主入口 | core/platform + sqflite_common_ffi_web | ✅ 浏览器端已可构建，优先支持云端搜索/播放/歌词/封面 |
 | 歌单 | api/playlist.ts, views/PlaylistPage.vue | features/playlist | 🟡 云端歌单列表、详情、搜索和播放已接入，订阅/编辑/删除待补 |
-| 专辑 | api/album.ts, views/AlbumPage.vue | features/album | ⬜ |
-| 艺术家 | api/artist.ts, views/ArtistPage.vue | features/artist | ⬜ |
+| 专辑 | api/album.ts, views/AlbumPage.vue | features/album | 🟡 专辑详情（信息+歌曲+播放）已接入，动态信息/收藏待补 |
+| 艺术家 | api/artist.ts, views/ArtistPage.vue | features/artist | 🟡 艺术家详情（信息+热门歌曲+播放）已接入，专辑列表/MV/关注待补 |
 | 评论 | api/comment.ts, components/CommentPage.vue | features/comments | 🟡 `/comment/new` 列表、推荐/最热/最新切换与分页已接入，点赞/发表/楼层详情待补 |
 | MV | api/mv.ts, views/MvPage.vue | features/mv | ⬜ |
 | 每日推荐 | api/playlist.ts, views/DailyTracks.vue | features/playlist（/daily/songs） | ✅ 列表与播放，推荐歌单（/recommend/resource）待补 |

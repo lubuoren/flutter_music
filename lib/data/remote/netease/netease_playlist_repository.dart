@@ -88,6 +88,69 @@ class NeteasePlaylistRepository {
     final data = neteaseMap(json['data']);
     final rawSongs =
         data?['dailySongs'] ?? data?['songs'] ?? json['dailySongs'];
+    return _tracksFromSongList(rawSongs);
+  }
+
+  /// 获取专辑详情（专辑信息 + 歌曲），映射为统一 [Playlist]（id 形如 `album:<id>`）。
+  Future<Playlist> fetchAlbum(String albumId) async {
+    final id = albumId.trim();
+    if (id.isEmpty) {
+      throw const NeteaseApiException(message: '缺少专辑 ID');
+    }
+    final json = await _client.getJson('/album', queryParameters: {'id': id});
+    return albumFromJson(id, json);
+  }
+
+  /// 获取艺术家详情（信息 + 热门歌曲），映射为统一 [Playlist]（id 形如 `artist:<id>`）。
+  Future<Playlist> fetchArtist(String artistId) async {
+    final id = artistId.trim();
+    if (id.isEmpty) {
+      throw const NeteaseApiException(message: '缺少艺术家 ID');
+    }
+    final json = await _client.getJson('/artists', queryParameters: {'id': id});
+    return artistFromJson(id, json);
+  }
+
+  static Playlist albumFromJson(String albumId, Map<String, Object?> json) {
+    final album = neteaseMap(json['album']) ?? const {};
+    final artist = neteaseMap(album['artist']);
+    final tracks = _tracksFromSongList(json['songs']);
+    return Playlist(
+      id: 'album:$albumId',
+      name: neteaseString(album['name']) ?? '未知专辑',
+      description: neteaseString(album['description']),
+      coverUrl: _normalizedImageUrl(
+        neteaseString(album['picUrl'] ?? album['blurPicUrl']),
+      ),
+      creatorUserId: neteaseString(artist?['id']),
+      creatorName: neteaseString(artist?['name']),
+      source: 'netease',
+      trackCount: tracks.length,
+      tracks: tracks,
+    );
+  }
+
+  static Playlist artistFromJson(String artistId, Map<String, Object?> json) {
+    final artist = neteaseMap(json['artist']) ?? const {};
+    final tracks = _tracksFromSongList(json['hotSongs']);
+    return Playlist(
+      id: 'artist:$artistId',
+      name: neteaseString(artist['name']) ?? '未知艺术家',
+      description: neteaseString(artist['briefDesc']),
+      coverUrl: _normalizedImageUrl(
+        neteaseString(
+          artist['cover'] ?? artist['picUrl'] ?? artist['img1v1Url'],
+        ),
+      ),
+      creatorUserId: artistId,
+      creatorName: neteaseString(artist['name']),
+      source: 'netease',
+      trackCount: tracks.length,
+      tracks: tracks,
+    );
+  }
+
+  static List<Track> _tracksFromSongList(Object? rawSongs) {
     if (rawSongs is! List) {
       return const [];
     }
